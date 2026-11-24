@@ -32,7 +32,10 @@ jobs:
         with:
           python-version: '3.14'
 
+      # repo 內的 gradle wrapper 與 gradlew 腳本不相容（上游用 Nix 提供 Gradle），直接裝指定版本
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.9.2'
 
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
@@ -48,7 +51,7 @@ jobs:
       - name: Build release APK
         env:
           SPEWTIFY_KEYSTORE_PASSWORD: ${{ secrets.SPEWTIFY_KEYSTORE_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --stacktrace
+        run: gradle :app:assembleRelease --stacktrace
 
       - name: Collect and verify APK
         run: |
