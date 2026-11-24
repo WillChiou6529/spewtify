@@ -55,8 +55,11 @@ jobs:
 
       - name: Collect and verify APK
         run: |
-          apk=$(find app/build/outputs/apk/release -name '*arm64-v8a*.apk' | head -1)
-          test -n "$apk"
+          echo "產出的 APK："; find app/build/outputs -name '*.apk' -exec ls -l {} \;
+          apk=$(find app/build/outputs -name '*.apk' -path '*release*' | grep -i arm64 | head -1)
+          [ -z "$apk" ] && apk=$(find app/build/outputs -name '*.apk' -path '*release*' | grep -v unsigned | head -1)
+          [ -z "$apk" ] && apk=$(find app/build/outputs -name '*.apk' -path '*release*' | head -1)
+          test -n "$apk"; echo "使用：$apk"
           cp "$apk" Spewtify.apk
           bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           "$bt/apksigner" verify --print-certs Spewtify.apk | head -3
