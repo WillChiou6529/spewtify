@@ -1,3 +1,6 @@
+> **Spewtify**：這是 ViTune 的自用分支，加了繁體中文、曲風／心情分類、每日 Mix 與情境播放。
+> 下載與說明見 **[SPEWTIFY.md](./SPEWTIFY.md)**；以下是上游 ViTune 原本的說明。
+
 <div align="center">
     <img src="./app/src/main/ic_launcher-playstore.png" width="128" height="128" style="display: block; margin: 0 auto"/>
     <h1>ViTune</h1>
