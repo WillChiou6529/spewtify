@@ -291,6 +291,15 @@ fun MediaItemMenu(
     var height by remember { mutableStateOf(0.dp) }
     var likedAt by remember { mutableStateOf<Long?>(null) }
     var isBlacklisted by remember { mutableStateOf(false) }
+    var isEditingTags by remember { mutableStateOf(false) }
+
+    if (isEditingTags) EditTagsDialog(
+        songId = mediaItem.mediaId,
+        onDismiss = {
+            isEditingTags = false
+            onDismiss()
+        }
+    )
 
     val extras = remember(mediaItem) { mediaItem.mediaMetadata.extras?.songBundle }
 
@@ -482,6 +491,13 @@ fun MediaItemMenu(
                     }
                 )
             }
+
+            // Spewtify：收藏的歌才在資料庫裡，才能存分類
+            if (!isLocal && likedAt != null) MenuEntry(
+                icon = R.drawable.sparkles,
+                text = stringResource(R.string.edit_tags),
+                onClick = { isEditingTags = true }
+            )
 
             if (!isLocal) onStartRadio?.let {
                 MenuEntry(

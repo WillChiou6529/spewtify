@@ -381,6 +381,10 @@
     </plurals>
     <string name="all_tags">全部</string>
     <string name="daily_mixes">你的每日 Mix</string>
+    <string name="edit_tags">編輯分類</string>
+    <string name="tag_section_situations">情境</string>
+    <string name="tag_section_genres">曲風</string>
+    <string name="tag_section_moods">心情</string>
     <string name="format_daily_mix">%1$s Mix</string>
     <string name="format_daily_mix_songs">%1$d 首</string>
     <string name="genre_tags">曲風與心情分類</string>

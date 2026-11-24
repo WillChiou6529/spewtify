@@ -383,6 +383,10 @@
     </plurals>
     <string name="all_tags">All</string>
     <string name="daily_mixes">Your daily mixes</string>
+    <string name="edit_tags">Edit tags</string>
+    <string name="tag_section_situations">Situations</string>
+    <string name="tag_section_genres">Genres</string>
+    <string name="tag_section_moods">Moods</string>
     <string name="format_daily_mix">%1$s Mix</string>
     <string name="format_daily_mix_songs">%1$d songs</string>
     <string name="genre_tags">Genre &amp; mood tags</string>

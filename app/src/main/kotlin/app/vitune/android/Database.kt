@@ -880,6 +880,35 @@ interface DatabaseAccessor {
     @RewriteQueriesToDropUnusedColumns
     fun songsWithTag(tag: String, limit: Int): List<Song>
 
+    // ---- Spewtify：情境（S6）與手動編輯分類 ----
+
+    @Query(
+        """
+        SELECT SongTag.* FROM SongTag JOIN Song ON Song.id = SongTag.songId
+        WHERE Song.likedAt IS NOT NULL AND NOT Song.blacklisted
+        """
+    )
+    fun likedSongTags(): Flow<List<SongTag>>
+
+    @Query(
+        """
+        SELECT SongTag.* FROM SongTag JOIN Song ON Song.id = SongTag.songId
+        WHERE Song.likedAt IS NOT NULL AND NOT Song.blacklisted
+        """
+    )
+    fun likedSongTagsNow(): List<SongTag>
+
+    @Query("SELECT * FROM Song WHERE likedAt IS NOT NULL AND NOT blacklisted")
+    fun likedSongsNow(): List<Song>
+
+    /** 包含手動移除（weight ≤ 0）的列，編輯對話框要用。 */
+    @Query("SELECT * FROM SongTag WHERE songId = :songId")
+    fun allTagsOfNow(songId: String): List<SongTag>
+
+    /** 手動編輯：覆蓋同一個 (songId, tag) 的自動標籤。 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertTags(tags: List<SongTag>)
+
     fun checkpoint() {
         raw(SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)"))
     }

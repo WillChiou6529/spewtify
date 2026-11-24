@@ -30,6 +30,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import app.vitune.android.tagging.Situations
+import app.vitune.android.ui.components.themed.SituationRow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import app.vitune.android.tagging.DailyMix
 import app.vitune.android.tagging.DailyMixes
@@ -94,6 +103,12 @@ fun QuickPicks(
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
     val context = LocalContext.current
+
+    // Spewtify：情境（讀書／運動／睡前／開車）首數，收藏或分類變動時自動更新
+    val situationCounts by remember {
+        Database.likedSongTags().map { Situations.counts(it) }.flowOn(Dispatchers.Default)
+    }.collectAsState(initial = emptyMap())
+    val coroutineScope = rememberCoroutineScope()
 
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
     val dailyMixes by produceState(initialValue = emptyList<DailyMix>()) {
@@ -196,6 +211,26 @@ fun QuickPicks(
                     onClick = { mix ->
                         binder?.stopRadio()
                         binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
+                    }
+                )
+            }
+
+            if (situationCounts.values.any { it > 0 }) {
+                BasicText(
+                    text = stringResource(R.string.tag_section_situations),
+                    style = typography.m.semiBold,
+                    modifier = sectionTextModifier
+                )
+                SituationRow(
+                    counts = situationCounts,
+                    contentPadding = endPaddingValues,
+                    onClick = { situation ->
+                        coroutineScope.launch {
+                            val songs = Situations.songsFor(situation)
+                            if (songs.isEmpty()) return@launch
+                            binder?.stopRadio()
+                            binder?.player?.forcePlayFromBeginning(songs.shuffled().map { it.asMediaItem })
+                        }
                     }
                 )
             }
