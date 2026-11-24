@@ -859,6 +859,27 @@ interface DatabaseAccessor {
     @Query("SELECT DISTINCT songId FROM SongTag WHERE tag = :tag AND weight > 0")
     fun songIdsWithTag(tag: String): Flow<List<String>>
 
+    @Query(
+        """
+        SELECT SongTag.tag AS tag, COUNT(DISTINCT SongTag.songId) AS count
+        FROM SongTag JOIN Song ON Song.id = SongTag.songId
+        WHERE Song.likedAt IS NOT NULL AND SongTag.weight > 0
+        GROUP BY SongTag.tag ORDER BY count DESC
+        """
+    )
+    fun favoriteTagCountsNow(): List<TagCount>
+
+    /** Daily Mix 用：該分類的收藏，最常聽的排前面。 */
+    @Query(
+        """
+        SELECT Song.* FROM Song JOIN SongTag ON Song.id = SongTag.songId
+        WHERE SongTag.tag = :tag AND SongTag.weight > 0 AND Song.likedAt IS NOT NULL AND NOT Song.blacklisted
+        ORDER BY Song.totalPlayTimeMs DESC LIMIT :limit
+        """
+    )
+    @RewriteQueriesToDropUnusedColumns
+    fun songsWithTag(tag: String, limit: Int): List<Song>
+
     fun checkpoint() {
         raw(SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)"))
     }

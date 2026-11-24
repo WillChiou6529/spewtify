@@ -29,6 +29,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
+import app.vitune.android.tagging.DailyMix
+import app.vitune.android.tagging.DailyMixes
+import app.vitune.android.ui.components.themed.DailyMixRow
+import app.vitune.android.utils.forcePlayFromBeginning
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +93,12 @@ fun QuickPicks(
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
     val windowInsets = LocalPlayerAwareWindowInsets.current
+    val context = LocalContext.current
+
+    // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
+    val dailyMixes by produceState(initialValue = emptyList<DailyMix>()) {
+        value = DailyMixes.load(context.applicationContext)
+    }
 
     var trending by persist<Song?>("home/trending")
 
@@ -171,6 +183,22 @@ fun QuickPicks(
                 title = stringResource(R.string.quick_picks),
                 modifier = Modifier.padding(endPaddingValues)
             )
+
+            if (dailyMixes.isNotEmpty()) {
+                BasicText(
+                    text = stringResource(R.string.daily_mixes),
+                    style = typography.m.semiBold,
+                    modifier = sectionTextModifier
+                )
+                DailyMixRow(
+                    mixes = dailyMixes,
+                    contentPadding = endPaddingValues,
+                    onClick = { mix ->
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
+                    }
+                )
+            }
 
             relatedPageResult?.getOrNull()?.let { related ->
                 LazyHorizontalGrid(

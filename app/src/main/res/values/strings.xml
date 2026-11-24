@@ -382,6 +382,9 @@
         <item quantity="other">%1$d songs</item>
     </plurals>
     <string name="all_tags">All</string>
+    <string name="daily_mixes">Your daily mixes</string>
+    <string name="format_daily_mix">%1$s Mix</string>
+    <string name="format_daily_mix_songs">%1$d songs</string>
     <string name="genre_tags">Genre &amp; mood tags</string>
     <string name="genre_tags_description">Liked songs are tagged automatically from YouTube Music\'s official genre/mood playlists; Last.fm fills the gaps if you add an API key.</string>
     <string name="genre_tags_run_now">Tag new liked songs now</string>
