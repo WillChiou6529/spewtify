@@ -379,6 +379,7 @@
     <plurals name="song_count_plural">
         <item quantity="other">%1$d 首歌曲</item>
     </plurals>
+    <string name="all_tags">全部</string>
     <string name="genre_tags">曲風與心情分類</string>
     <string name="genre_tags_description">收藏的歌會依 YouTube Music 官方曲風／心情歌單自動貼標籤；填了 Last.fm API key，查不到的歌會再問 Last.fm。</string>
     <string name="genre_tags_run_now">立即分類新收藏</string>

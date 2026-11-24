@@ -60,6 +60,7 @@ import app.vitune.android.models.SongArtistMap
 import app.vitune.android.models.SongPlaylistMap
 import app.vitune.android.models.SongTag
 import app.vitune.android.models.SongTagState
+import app.vitune.android.models.TagCount
 import app.vitune.android.models.SongWithContentLength
 import app.vitune.android.models.SortedSongPlaylistMap
 import app.vitune.android.service.LOCAL_KEY_PREFIX
@@ -844,6 +845,19 @@ interface DatabaseAccessor {
         """
     )
     fun likedTaggedCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT SongTag.tag AS tag, COUNT(DISTINCT SongTag.songId) AS count
+        FROM SongTag JOIN Song ON Song.id = SongTag.songId
+        WHERE Song.likedAt IS NOT NULL AND SongTag.weight > 0
+        GROUP BY SongTag.tag ORDER BY count DESC
+        """
+    )
+    fun favoriteTagCounts(): Flow<List<TagCount>>
+
+    @Query("SELECT DISTINCT songId FROM SongTag WHERE tag = :tag AND weight > 0")
+    fun songIdsWithTag(tag: String): Flow<List<String>>
 
     fun checkpoint() {
         raw(SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)"))

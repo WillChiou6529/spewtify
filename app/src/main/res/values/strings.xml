@@ -381,6 +381,7 @@
         <item quantity="one">%1$d song</item>
         <item quantity="other">%1$d songs</item>
     </plurals>
+    <string name="all_tags">All</string>
     <string name="genre_tags">Genre &amp; mood tags</string>
     <string name="genre_tags_description">Liked songs are tagged automatically from YouTube Music\'s official genre/mood playlists; Last.fm fills the gaps if you add an API key.</string>
     <string name="genre_tags_run_now">Tag new liked songs now</string>

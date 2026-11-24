@@ -14,8 +14,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -32,7 +34,9 @@ import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrol
 import app.vitune.android.ui.components.themed.Header
 import app.vitune.android.ui.components.themed.InHistoryMediaItemMenu
 import app.vitune.android.ui.components.themed.NonQueuedMediaItemMenu
+import app.vitune.android.tagging.tagDisplayName
 import app.vitune.android.ui.components.themed.SecondaryTextButton
+import app.vitune.android.ui.components.themed.TagChipRow
 import app.vitune.android.ui.components.themed.ValueSelectorDialog
 import app.vitune.android.ui.items.SongItem
 import app.vitune.android.ui.screens.home.HeaderSongSortBy
@@ -55,6 +59,7 @@ import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -110,6 +115,16 @@ fun BuiltInPlaylistSongs(
         }.collect { songs = it.toImmutableList() }
     }
 
+    // Spewtify：收藏依曲風／心情篩選（只在收藏頁）
+    var selectedTag by rememberSaveable { mutableStateOf<String?>(null) }
+    val tagCounts by remember { Database.favoriteTagCounts().distinctUntilChanged() }
+        .collectAsState(initial = emptyList())
+    val taggedIds by remember(selectedTag) {
+        selectedTag?.let { tag -> Database.songIdsWithTag(tag).map { it.toHashSet() } } ?: flowOf(emptySet())
+    }.collectAsState(initial = emptySet())
+    val shown = if (builtInPlaylist != BuiltInPlaylist.Favorites || selectedTag == null) songs
+    else songs.filter { it.id in taggedIds }
+
     val lazyListState = rememberLazyListState()
 
     val [currentMediaId, playing] = playingSong(binder)
@@ -130,7 +145,8 @@ fun BuiltInPlaylistSongs(
             ) {
                 Header(
                     title = when (builtInPlaylist) {
-                        BuiltInPlaylist.Favorites -> stringResource(R.string.favorites)
+                        BuiltInPlaylist.Favorites -> stringResource(R.string.favorites) +
+                            (selectedTag?.let { " · ${tagDisplayName(it)}" } ?: "")
 
                         BuiltInPlaylist.Offline -> stringResource(R.string.offline)
 
@@ -145,16 +161,16 @@ fun BuiltInPlaylistSongs(
                 ) {
                     SecondaryTextButton(
                         text = stringResource(R.string.enqueue),
-                        enabled = songs.isNotEmpty(),
+                        enabled = shown.isNotEmpty(),
                         onClick = {
-                            binder?.player?.enqueue(songs.map(Song::asMediaItem))
+                            binder?.player?.enqueue(shown.map(Song::asMediaItem))
                         }
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
 
                     if (builtInPlaylist != BuiltInPlaylist.Offline) PlaylistDownloadIcon(
-                        songs = songs.map(Song::asMediaItem).toImmutableList()
+                        songs = shown.map(Song::asMediaItem).toImmutableList()
                     )
 
                     if (builtInPlaylist.sortable) HeaderSongSortBy(
@@ -187,8 +203,20 @@ fun BuiltInPlaylistSongs(
                 }
             }
 
+            if (builtInPlaylist == BuiltInPlaylist.Favorites && tagCounts.isNotEmpty()) item(
+                key = "tags",
+                contentType = 1
+            ) {
+                TagChipRow(
+                    tags = tagCounts,
+                    selected = selectedTag,
+                    onSelect = { selectedTag = it },
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
             itemsIndexed(
-                items = songs,
+                items = shown,
                 key = { _, song -> song.id },
                 contentType = { _, song -> song }
             ) { index, song ->
@@ -215,7 +243,7 @@ fun BuiltInPlaylistSongs(
                             onClick = {
                                 binder?.stopRadio()
                                 binder?.player?.forcePlayAtIndex(
-                                    items = songs.map(Song::asMediaItem),
+                                    items = shown.map(Song::asMediaItem),
                                     index = index
                                 )
                             }
@@ -233,10 +261,10 @@ fun BuiltInPlaylistSongs(
             lazyListState = lazyListState,
             icon = R.drawable.shuffle,
             onClick = {
-                if (songs.isEmpty()) return@FloatingActionsContainerWithScrollToTop
+                if (shown.isEmpty()) return@FloatingActionsContainerWithScrollToTop
                 binder?.stopRadio()
                 binder?.player?.forcePlayFromBeginning(
-                    songs.shuffled().map(Song::asMediaItem)
+                    shown.shuffled().map(Song::asMediaItem)
                 )
             }
         )
