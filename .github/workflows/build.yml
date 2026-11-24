@@ -48,10 +48,20 @@ jobs:
           echo "SPEWTIFY_KEYSTORE=$RUNNER_TEMP/spewtify.p12" >> "$GITHUB_ENV"
           echo "SPEWTIFY_KEY_ALIAS=spewtify" >> "$GITHUB_ENV"
 
+      - name: Unit tests (tags)
+        run: gradle :providers:tags:test --stacktrace
+
       - name: Build release APK
         env:
           SPEWTIFY_KEYSTORE_PASSWORD: ${{ secrets.SPEWTIFY_KEYSTORE_PASSWORD }}
         run: gradle :app:assembleRelease --stacktrace
+
+      # Room 新版資料庫結構要存回 repo，之後的 AutoMigration 才有依據
+      - name: Upload Room schemas
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-schemas
+          path: app/schemas/
 
       - name: Collect and verify APK
         run: |

@@ -234,6 +234,7 @@ dependencies {
     implementation(projects.providers.lrclib)
     implementation(projects.providers.piped)
     implementation(projects.providers.sponsorblock)
+    implementation(projects.providers.tags)
     implementation(projects.providers.translate)
     implementation(projects.core.data)
     implementation(projects.core.ui)

@@ -8,6 +8,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -18,6 +20,8 @@ import app.vitune.android.internal
 import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.query
 import app.vitune.android.service.PlayerService
+import app.vitune.android.tagging.SongTagWorker
+import app.vitune.android.ui.components.themed.TextFieldDialog
 import app.vitune.android.transaction
 import app.vitune.android.ui.screens.Route
 import app.vitune.android.utils.intent
@@ -41,6 +45,23 @@ fun DatabaseSettings() = with(DataPreferences) {
 
     val blacklistLength by remember { Database.blacklistLength().distinctUntilChanged() }
         .collectAsState(initial = 0)
+
+    val likedCount by remember { Database.likedCount().distinctUntilChanged() }
+        .collectAsState(initial = 0)
+    val likedTaggedCount by remember { Database.likedTaggedCount().distinctUntilChanged() }
+        .collectAsState(initial = 0)
+    var editingLastFmKey by remember { mutableStateOf(false) }
+
+    if (editingLastFmKey) TextFieldDialog(
+        hintText = stringResource(R.string.lastfm_api_key_hint),
+        initialTextInput = lastFmApiKey,
+        isTextInputValid = { true },
+        onDismiss = { editingLastFmKey = false },
+        onAccept = {
+            lastFmApiKey = it.trim()
+            SongTagWorker.runNow(context.applicationContext, force = false)
+        }
+    )
 
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument(mimeType = "application/vnd.sqlite3")
@@ -81,6 +102,34 @@ fun DatabaseSettings() = with(DataPreferences) {
     }
 
     SettingsCategoryScreen(title = stringResource(R.string.database)) {
+        SettingsGroup(
+            title = stringResource(R.string.genre_tags),
+            description = stringResource(R.string.genre_tags_description)
+        ) {
+            SettingsEntry(
+                title = stringResource(R.string.genre_tags_run_now),
+                text = stringResource(R.string.format_genre_tags_progress, likedTaggedCount, likedCount),
+                onClick = {
+                    SongTagWorker.runNow(context.applicationContext, force = false)
+                    context.toast(context.getString(R.string.genre_tags_started))
+                }
+            )
+            SettingsEntry(
+                title = stringResource(R.string.genre_tags_retag_all),
+                text = stringResource(R.string.genre_tags_retag_all_description),
+                onClick = {
+                    SongTagWorker.runNow(context.applicationContext, force = true)
+                    context.toast(context.getString(R.string.genre_tags_started))
+                }
+            )
+            SettingsEntry(
+                title = stringResource(R.string.lastfm_api_key),
+                text = if (lastFmApiKey.isBlank()) stringResource(R.string.lastfm_api_key_empty)
+                else stringResource(R.string.lastfm_api_key_set),
+                onClick = { editingLastFmKey = true }
+            )
+        }
+
         SettingsGroup(title = stringResource(R.string.cleanup)) {
             SwitchSettingsEntry(
                 title = stringResource(R.string.pause_playback_history),

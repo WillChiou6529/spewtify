@@ -537,6 +537,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 
         MonetCompat.enablePaletteCompat()
         ServiceNotifications.createAll()
+        app.vitune.android.tagging.SongTagWorker.schedule(this)
     }
 
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(this)

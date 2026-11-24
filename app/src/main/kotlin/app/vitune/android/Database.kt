@@ -58,6 +58,8 @@ import app.vitune.android.models.Song
 import app.vitune.android.models.SongAlbumMap
 import app.vitune.android.models.SongArtistMap
 import app.vitune.android.models.SongPlaylistMap
+import app.vitune.android.models.SongTag
+import app.vitune.android.models.SongTagState
 import app.vitune.android.models.SongWithContentLength
 import app.vitune.android.models.SortedSongPlaylistMap
 import app.vitune.android.service.LOCAL_KEY_PREFIX
@@ -802,6 +804,47 @@ interface DatabaseAccessor {
     @RawQuery
     fun raw(supportSQLiteQuery: SupportSQLiteQuery): Int
 
+    // ---- Spewtify：曲風／心情標籤 ----
+
+    @Query(
+        """
+        SELECT * FROM Song WHERE likedAt IS NOT NULL AND id NOT LIKE '$LOCAL_KEY_PREFIX%'
+        AND id NOT IN (SELECT songId FROM SongTagState WHERE taggedAt > :since)
+        ORDER BY likedAt DESC LIMIT :limit
+        """
+    )
+    fun likedSongsNeedingTags(since: Long, limit: Int): List<Song>
+
+    @Query("SELECT artistId FROM SongArtistMap WHERE songId = :songId")
+    fun artistIdsOf(songId: String): List<String>
+
+    @Query("DELETE FROM SongTag WHERE songId = :songId AND source != 'manual'")
+    fun clearAutoTags(songId: String)
+
+    /** 手動標籤跟自動標籤同一個主鍵時，保留手動的。 */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertTags(tags: List<SongTag>)
+
+    @Upsert
+    fun upsert(state: SongTagState)
+
+    @Query("DELETE FROM SongTagState")
+    fun resetTagStates()
+
+    @Query("SELECT * FROM SongTag WHERE songId = :songId AND weight > 0 ORDER BY weight DESC")
+    fun tagsOf(songId: String): Flow<List<SongTag>>
+
+    @Query("SELECT COUNT(*) FROM Song WHERE likedAt IS NOT NULL AND id NOT LIKE '$LOCAL_KEY_PREFIX%'")
+    fun likedCount(): Flow<Int>
+
+    @Query(
+        """
+        SELECT COUNT(DISTINCT Song.id) FROM Song JOIN SongTag ON Song.id = SongTag.songId
+        WHERE Song.likedAt IS NOT NULL AND SongTag.weight > 0
+        """
+    )
+    fun likedTaggedCount(): Flow<Int>
+
     fun checkpoint() {
         raw(SimpleSQLiteQuery("PRAGMA wal_checkpoint(FULL)"))
     }
@@ -821,10 +864,12 @@ interface DatabaseAccessor {
         Format::class,
         Event::class,
         Lyrics::class,
-        PipedSession::class
+        PipedSession::class,
+        SongTag::class,
+        SongTagState::class
     ],
     views = [SortedSongPlaylistMap::class],
-    version = 30,
+    version = 31,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -851,7 +896,8 @@ interface DatabaseAccessor {
         AutoMigration(from = 26, to = 27),
         AutoMigration(from = 27, to = 28),
         AutoMigration(from = 28, to = 29),
-        AutoMigration(from = 29, to = 30)
+        AutoMigration(from = 29, to = 30),
+        AutoMigration(from = 30, to = 31)
     ]
 )
 @TypeConverters(Converters::class)

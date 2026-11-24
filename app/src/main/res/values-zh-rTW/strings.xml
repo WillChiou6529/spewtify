@@ -379,4 +379,15 @@
     <plurals name="song_count_plural">
         <item quantity="other">%1$d 首歌曲</item>
     </plurals>
+    <string name="genre_tags">曲風與心情分類</string>
+    <string name="genre_tags_description">收藏的歌會依 YouTube Music 官方曲風／心情歌單自動貼標籤；填了 Last.fm API key，查不到的歌會再問 Last.fm。</string>
+    <string name="genre_tags_run_now">立即分類新收藏</string>
+    <string name="format_genre_tags_progress">已分類 %1$d／%2$d 首收藏</string>
+    <string name="genre_tags_retag_all">全部重新分類</string>
+    <string name="genre_tags_retag_all_description">重新抓官方分類資料，所有收藏重新貼標籤；手動改過的標籤會保留。</string>
+    <string name="genre_tags_started">已在背景開始分類</string>
+    <string name="lastfm_api_key">Last.fm API key</string>
+    <string name="lastfm_api_key_hint">貼上 last.fm/api 申請到的 key（選填）</string>
+    <string name="lastfm_api_key_empty">未設定：只用 YouTube Music 的資料分類</string>
+    <string name="lastfm_api_key_set">已設定：YouTube 分不出來的歌會再查 Last.fm</string>
 </resources>
