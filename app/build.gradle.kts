@@ -15,18 +15,18 @@ android {
     namespace = appId
     compileSdk { version = release(37) { minorApiLevel = 2 } }
 
-    val abis = listOf("arm64-v8a", "x86_64")
+    val abis = listOf("arm64-v8a")
     val cmakeVersion = "4.1.2"
     ndkVersion = "30.0.16248370"
 
     defaultConfig {
-        applicationId = appId
+        applicationId = "com.willchiou.spewtify"
 
         minSdk = 24
         targetSdk = 37
 
-        versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 27
-        versionName = project.version.toString()
+        versionCode = System.getenv("SPEWTIFY_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("SPEWTIFY_VERSION") ?: "1.0.0"
 
         ndk {
             //noinspection ChromeOsAbiSupport
@@ -51,10 +51,10 @@ android {
 
     signingConfigs {
         create("ci") {
-            storeFile = System.getenv("ANDROID_NIGHTLY_KEYSTORE")?.let { file(it) }
-            storePassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("ANDROID_NIGHTLY_KEYSTORE_ALIAS")
-            keyPassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD")
+            storeFile = System.getenv("SPEWTIFY_KEYSTORE")?.let { file(it) }
+            storePassword = System.getenv("SPEWTIFY_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("SPEWTIFY_KEY_ALIAS")
+            keyPassword = System.getenv("SPEWTIFY_KEYSTORE_PASSWORD")
         }
     }
 
@@ -62,14 +62,15 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-DEBUG"
-            manifestPlaceholders["appName"] = "ViTune Debug"
+            manifestPlaceholders["appName"] = "Spewtify Debug"
         }
 
         release {
             versionNameSuffix = "-RELEASE"
             isMinifyEnabled = true
             isShrinkResources = true
-            manifestPlaceholders["appName"] = "ViTune"
+            manifestPlaceholders["appName"] = "Spewtify"
+            if (System.getenv("SPEWTIFY_KEYSTORE") != null) signingConfig = signingConfigs.getByName("ci")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -82,7 +83,7 @@ android {
 
             applicationIdSuffix = ".nightly"
             versionNameSuffix = "-NIGHTLY"
-            manifestPlaceholders["appName"] = "ViTune Nightly"
+            manifestPlaceholders["appName"] = "Spewtify Nightly"
             signingConfig = signingConfigs.findByName("ci")
         }
     }
