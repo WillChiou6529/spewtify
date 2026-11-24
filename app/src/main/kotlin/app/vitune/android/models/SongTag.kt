@@ -32,6 +32,7 @@ data class SongTag(
     companion object {
         const val SOURCE_YT = "yt"
         const val SOURCE_YT_ARTIST = "yt_artist"
+        const val SOURCE_YT_RADIO = "yt_radio"
         const val SOURCE_LASTFM = "lastfm"
         const val SOURCE_MANUAL = "manual"
     }

@@ -810,11 +810,14 @@ interface DatabaseAccessor {
     @Query(
         """
         SELECT * FROM Song WHERE likedAt IS NOT NULL AND id NOT LIKE '$LOCAL_KEY_PREFIX%'
-        AND id NOT IN (SELECT songId FROM SongTagState WHERE taggedAt > :since)
+        AND id NOT IN (
+            SELECT songId FROM SongTagState
+            WHERE (sources != '' AND taggedAt > :since) OR (sources = '' AND taggedAt > :untaggedSince)
+        )
         ORDER BY likedAt DESC LIMIT :limit
         """
     )
-    fun likedSongsNeedingTags(since: Long, limit: Int): List<Song>
+    fun likedSongsNeedingTags(since: Long, untaggedSince: Long, limit: Int): List<Song>
 
     @Query("SELECT artistId FROM SongArtistMap WHERE songId = :songId")
     fun artistIdsOf(songId: String): List<String>

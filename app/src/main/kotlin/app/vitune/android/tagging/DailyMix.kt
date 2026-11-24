@@ -128,7 +128,7 @@ object DailyMixes {
         }
         .filter { item ->
             val id = item.info?.endpoint?.videoId ?: return@filter false
-            id !in exclude && tagId in tagsOf(index, item)
+            id !in exclude && tagId in index.tagsOf(item)
         }
         .distinctBy { it.info?.endpoint?.videoId }
         .take(RECS_PER_MIX)
@@ -141,16 +141,6 @@ object DailyMixes {
                 thumbnailUrl = item.thumbnail?.url
             )
         }
-
-    /** 推薦歌的分類：官方歌單直接收錄的＋依歌手推估的（規則同 SongTagger）。 */
-    private fun tagsOf(index: YtTagIndex, item: Innertube.SongItem): Set<String> {
-        val id = item.info?.endpoint?.videoId ?: return emptySet()
-        val direct = index.songs[id].orEmpty()
-        val authors = item.authors.orEmpty()
-        val counts = authors.mapNotNull { a -> a.endpoint?.browseId?.let { index.artists[it] } }
-            .ifEmpty { authors.mapNotNull { a -> a.name?.trim()?.lowercase()?.let { index.artistNames[it] } } }
-        return (direct + SongTagger.fromArtistCounts(counts).map { it.tag.tag.id }).toSet()
-    }
 
     /** 自己的歌和推薦交錯排，大約每 3 首插 2 首推薦，不會整段都是新歌。 */
     internal fun <T> interleave(own: List<T>, recs: List<T>): List<T> {

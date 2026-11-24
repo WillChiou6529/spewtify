@@ -40,9 +40,19 @@ data class YtTagIndex(
     /** 歌手名稱（小寫）→ tag id → 出現次數；資料庫沒有歌手 id 時用 */
     val artistNames: Map<String, Map<String, Int>>
 ) {
+    /** 一首 YouTube 歌（電台、推薦）的分類：官方歌單直接收錄的＋依歌手推估的（規則同 SongTagger）。 */
+    fun tagsOf(item: Innertube.SongItem): Set<String> {
+        val id = item.info?.endpoint?.videoId ?: return emptySet()
+        val direct = songs[id].orEmpty()
+        val authors = item.authors.orEmpty()
+        val counts = authors.mapNotNull { a -> a.endpoint?.browseId?.let { artists[it] } }
+            .ifEmpty { authors.mapNotNull { a -> a.name?.trim()?.lowercase()?.let { artistNames[it] } } }
+        return (direct + SongTagger.fromArtistCounts(counts).map { it.tag.tag.id }).toSet()
+    }
+
     companion object {
         private const val FILE = "yt_tag_index.json"
-        private const val PLAYLISTS_PER_CATEGORY = 3
+        private const val PLAYLISTS_PER_CATEGORY = 6
         private const val PARALLEL_REQUESTS = 4
         private val TTL = 7.days
         private val json = Json { ignoreUnknownKeys = true }

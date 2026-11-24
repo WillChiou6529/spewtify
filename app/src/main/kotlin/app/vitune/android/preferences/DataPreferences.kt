@@ -27,6 +27,7 @@ object DataPreferences : GlobalPreferencesHolder() {
     var cachedQuickPicks by json(Innertube.RelatedPage())
     var autoSyncPlaylists by boolean(true)
     var lastFmApiKey by string("")
+    var tagRulesVersion by int(0)
 
     enum class TopListPeriod(
         val displayName: @Composable () -> String,
