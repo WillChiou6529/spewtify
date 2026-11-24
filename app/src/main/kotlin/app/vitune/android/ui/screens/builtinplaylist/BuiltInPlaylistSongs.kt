@@ -120,8 +120,9 @@ fun BuiltInPlaylistSongs(
     val tagCounts by remember { Database.favoriteTagCounts().distinctUntilChanged() }
         .collectAsState(initial = emptyList())
     val taggedIds by remember(selectedTag) {
-        selectedTag?.let { tag -> Database.songIdsWithTag(tag).map { it.toHashSet() } } ?: flowOf(emptySet())
-    }.collectAsState(initial = emptySet())
+        selectedTag?.let { tag -> Database.songIdsWithTag(tag).map<List<String>, Set<String>> { it.toHashSet() } }
+            ?: flowOf<Set<String>>(emptySet())
+    }.collectAsState(initial = emptySet<String>())
     val shown = if (builtInPlaylist != BuiltInPlaylist.Favorites || selectedTag == null) songs
     else songs.filter { it.id in taggedIds }
 
