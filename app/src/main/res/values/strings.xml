@@ -382,7 +382,7 @@
         <item quantity="other">%1$d songs</item>
     </plurals>
     <string name="genre_tags">Genre &amp; mood tags</string>
-    <string name="genre_tags_description">Liked songs are tagged automatically from YouTube Music's official genre/mood playlists; Last.fm fills the gaps if you add an API key.</string>
+    <string name="genre_tags_description">Liked songs are tagged automatically from YouTube Music\'s official genre/mood playlists; Last.fm fills the gaps if you add an API key.</string>
     <string name="genre_tags_run_now">Tag new liked songs now</string>
     <string name="format_genre_tags_progress">%1$d of %2$d liked songs tagged</string>
     <string name="genre_tags_retag_all">Re-tag everything</string>
@@ -391,5 +391,5 @@
     <string name="lastfm_api_key">Last.fm API key</string>
     <string name="lastfm_api_key_hint">Paste the key from last.fm/api (optional)</string>
     <string name="lastfm_api_key_empty">Not set: only YouTube Music data is used</string>
-    <string name="lastfm_api_key_set">Set: songs YouTube can't classify are looked up on Last.fm</string>
+    <string name="lastfm_api_key_set">Set: songs YouTube can\'t classify are looked up on Last.fm</string>
 </resources>
