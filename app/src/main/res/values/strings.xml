@@ -304,6 +304,11 @@
     <string name="player_layout">Player layout</string>
     <string name="classic_player_layout_name">Classic</string>
     <string name="new_player_layout_name">Modern (new)</string>
+    <string name="spotify_player_layout_name">Spotify style</string>
+    <string name="mv_background">Music video background</string>
+    <string name="mv_background_description">Play the official music video (muted, looping) behind the player; shows the cover when there is none</string>
+    <string name="mv_background_wifi_only">Music video on Wi-Fi only</string>
+    <string name="mv_background_wifi_only_description">Saves mobile data (360p video uses about 1–3 MB per minute)</string>
     <string name="piped">Piped</string>
     <string name="instance">Instance</string>
     <string name="click_to_select">Click to select</string>

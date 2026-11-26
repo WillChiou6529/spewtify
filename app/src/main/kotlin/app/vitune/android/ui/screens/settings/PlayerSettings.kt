@@ -38,6 +38,18 @@ fun PlayerSettings() = with(PlayerPreferences) {
     SettingsCategoryScreen(title = stringResource(R.string.player)) {
         SettingsGroup(title = stringResource(R.string.player)) {
             SwitchSettingsEntry(
+                title = stringResource(R.string.mv_background),
+                text = stringResource(R.string.mv_background_description),
+                isChecked = mvBackground,
+                onCheckedChange = { mvBackground = it }
+            )
+            if (mvBackground) SwitchSettingsEntry(
+                title = stringResource(R.string.mv_background_wifi_only),
+                text = stringResource(R.string.mv_background_wifi_only_description),
+                isChecked = mvBackgroundWifiOnly,
+                onCheckedChange = { mvBackgroundWifiOnly = it }
+            )
+            SwitchSettingsEntry(
                 title = stringResource(R.string.persistent_queue),
                 text = stringResource(R.string.persistent_queue_description),
                 isChecked = persistentQueue,

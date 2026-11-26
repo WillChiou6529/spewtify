@@ -41,6 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.CompositionLocalProvider
+import app.vitune.android.utils.shuffleQueue
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
@@ -118,6 +122,127 @@ fun Controls(
             playButtonRadius = playButtonRadius,
             modifier = modifier
         )
+
+        PlayerPreferences.PlayerLayout.Spotify -> SpotifyControls(
+            media = media,
+            binder = binder,
+            shouldBePlaying = shouldBePlaying,
+            position = position,
+            likedAt = likedAt,
+            setLikedAt = setLikedAt,
+            modifier = modifier
+        )
+    }
+}
+
+/**
+ * Spewtify：Spotify 式控制區——歌名／歌手靠左＋右邊愛心、細進度條、
+ * 隨機／上一首／白色大圓播放鍵／下一首／單曲循環。
+ */
+@Composable
+private fun SpotifyControls(
+    media: UiMedia,
+    binder: PlayerService.Binder,
+    shouldBePlaying: Boolean,
+    position: Long,
+    likedAt: Long?,
+    setLikedAt: (Long?) -> Unit,
+    modifier: Modifier = Modifier
+) = with(PlayerPreferences) {
+    val appearance = LocalAppearance.current
+    val (colorPalette, typography) = appearance
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f)) {
+                AnimatedContent(
+                    targetState = media.title,
+                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                    label = ""
+                ) { title ->
+                    FadingRow(modifier = Modifier.fillMaxWidth()) {
+                        BasicText(text = title, style = typography.l.bold.copy(color = colorPalette.text), maxLines = 1)
+                    }
+                }
+                BasicText(
+                    text = media.artist,
+                    style = typography.s.copy(color = colorPalette.textSecondary),
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            IconButton(
+                icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                color = if (likedAt == null) colorPalette.text else Color(0xFF1ED760),
+                onClick = { setLikedAt(if (likedAt == null) System.currentTimeMillis() else null) },
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .size(26.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        SeekBar(binder = binder, position = position, media = media)
+        Spacer(modifier = Modifier.weight(1f))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            IconButton(
+                icon = R.drawable.shuffle,
+                color = colorPalette.text,
+                onClick = { binder.player.shuffleQueue() },
+                modifier = Modifier.size(24.dp)
+            )
+            IconButton(
+                icon = R.drawable.play_skip_back,
+                color = colorPalette.text,
+                onClick = binder.player::forceSeekToPrevious,
+                modifier = Modifier.size(30.dp)
+            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(68.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .clickable {
+                        if (shouldBePlaying) binder.player.pause() else {
+                            if (binder.player.playbackState == Player.STATE_IDLE) binder.player.prepare()
+                            binder.player.play()
+                        }
+                    }
+            ) {
+                // 白底圓鈕裡的圖示用黑色
+                CompositionLocalProvider(
+                    LocalAppearance provides appearance.copy(colorPalette = colorPalette.copy(text = Color.Black))
+                ) {
+                    AnimatedPlayPauseButton(playing = shouldBePlaying, modifier = Modifier.size(30.dp))
+                }
+            }
+            IconButton(
+                icon = R.drawable.play_skip_forward,
+                color = colorPalette.text,
+                onClick = binder.player::forceSeekToNext,
+                modifier = Modifier.size(30.dp)
+            )
+            IconButton(
+                icon = if (trackLoopEnabled) R.drawable.repeat_on else R.drawable.repeat,
+                color = if (trackLoopEnabled) Color(0xFF1ED760) else colorPalette.text,
+                onClick = { trackLoopEnabled = !trackLoopEnabled },
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
     }
 }
 

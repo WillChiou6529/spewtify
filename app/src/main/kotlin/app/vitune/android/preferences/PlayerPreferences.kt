@@ -33,6 +33,10 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var pitch by pitchProperty
     var minimumSilence by long(2_000_000L)
     var persistentQueue by boolean(true)
+    /** Spewtify：播放畫面背景放官方 MV 片段（沒有 MV 就顯示封面） */
+    var mvBackground by boolean(true)
+    /** Spewtify：MV 背景只在 Wi-Fi（不計流量的網路）播，省行動數據 */
+    var mvBackgroundWifiOnly by boolean(true)
     var stopWhenClosed by boolean(false)
     var stopOnMinimumVolume by boolean(true)
 
@@ -43,8 +47,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var horizontalSwipeToClose by boolean(false)
     var horizontalSwipeToRemoveItem by boolean(false)
 
-    var playerLayout by enum(PlayerLayout.New)
-    var seekBarStyle by enum(SeekBarStyle.Wavy)
+    var playerLayout by enum(PlayerLayout.Spotify)
+    var seekBarStyle by enum(SeekBarStyle.Static)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
@@ -61,7 +65,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class PlayerLayout(val displayName: @Composable () -> String) {
         Classic(displayName = { stringResource(R.string.classic_player_layout_name) }),
-        New(displayName = { stringResource(R.string.new_player_layout_name) })
+        New(displayName = { stringResource(R.string.new_player_layout_name) }),
+        Spotify(displayName = { stringResource(R.string.spotify_player_layout_name) })
     }
 
     enum class SeekBarStyle(val displayName: @Composable () -> String) {

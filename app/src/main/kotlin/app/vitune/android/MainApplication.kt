@@ -601,6 +601,11 @@ object Dependencies {
         .callAttr("download", quickjsPath.absolutePath, id)
         .toString()
 
+    /** Spewtify：MV 背景用的低畫質影像網址（yt-dlp）；空字串＝拿不到。 */
+    fun runVideoUrl(id: String): String = module
+        .callAttr("video_url", quickjsPath.absolutePath, id)
+        .toString()
+
     fun upgradeYoutubeDl(packageName: String = "yt-dlp"): Boolean {
         val success = runCatching { module.callAttr("upgrade", packageName) }
             .also { it.exceptionOrNull()?.printStackTrace() }

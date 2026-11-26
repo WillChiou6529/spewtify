@@ -305,6 +305,11 @@
     <string name="player_layout">播放器佈局</string>
     <string name="classic_player_layout_name">經典</string>
     <string name="new_player_layout_name">現代 (新)</string>
+    <string name="spotify_player_layout_name">Spotify 風格</string>
+    <string name="mv_background">播放畫面背景放 MV</string>
+    <string name="mv_background_description">有官方 MV 的歌，在播放畫面背景靜音循環播放 MV 片段；沒有 MV 就顯示封面</string>
+    <string name="mv_background_wifi_only">MV 只在 Wi-Fi 播</string>
+    <string name="mv_background_wifi_only_description">省行動數據（360p 影片每分鐘約 1～3 MB）</string>
     <string name="piped">Piped</string>
     <string name="instance">實例</string>
     <string name="click_to_select">點選選擇</string>

@@ -48,7 +48,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -358,12 +361,42 @@ fun Player(
             expandedBound = layoutState.expandedBound
         )
 
+        // Spewtify：有官方 MV 就在背景滿版播（靜音循環），沒有就維持封面；背景用封面主色的漸層（像 Spotify）
+        var mvShowing by remember(mediaItem?.mediaId) { mutableStateOf(false) }
+        MvBackground(
+            mediaItem = mediaItem,
+            isPlaying = shouldBePlaying,
+            active = layoutState.expanded && !isLandscape,
+            audioPositionMs = { binder?.player?.currentPosition ?: 0L },
+            onShowing = { mvShowing = it },
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+        )
+        if (mvShowing) Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.45f),
+                        0.3f to Color.Transparent,
+                        0.55f to Color.Black.copy(alpha = 0.35f),
+                        1f to Color.Black.copy(alpha = 0.92f)
+                    )
+                )
+        )
+
         val containerModifier = Modifier
             .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    0.5f to colorPalette.background1,
-                    1f to colorPalette.background0
+            .then(
+                if (mvShowing) Modifier
+                else Modifier.background(
+                    Brush.verticalGradient(
+                        0f to lerp(colorPalette.background1, colorPalette.accent, 0.45f),
+                        0.65f to colorPalette.background1,
+                        1f to colorPalette.background0
+                    )
                 )
             )
             .padding(
@@ -377,7 +410,8 @@ fun Player(
             Pip(
                 numerator = 1,
                 denominator = 1,
-                modifier = innerModifier
+                // MV 在播時封面藏起來（看歌詞時還是顯示）
+                modifier = innerModifier.alpha(if (mvShowing && !isShowingLyrics) 0f else 1f)
             ) {
                 Thumbnail(
                     isShowingLyrics = isShowingLyrics,

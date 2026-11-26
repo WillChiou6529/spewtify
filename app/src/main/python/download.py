@@ -10,6 +10,18 @@ def download(quickjs_bin: str, video_id: str) -> str:
     )
 
 
+def video_url(quickjs_bin: str, video_id: str) -> str:
+    """Spewtify：播放畫面背景用的 MV 低畫質純影像串流網址（360p 以下，優先 H.264 手機好解碼）。"""
+    opts = {
+        "format": "bestvideo[height<=360][vcodec^=avc1]/bestvideo[height<=480][vcodec^=avc1]/bestvideo[height<=360]/worstvideo",
+        "js_runtimes": {"quickjs": {"path": quickjs_bin}},
+        "noplaylist": True,
+        "quiet": True,
+    }
+    info = yt_dlp.YoutubeDL(opts).extract_info(video_id, download=False)
+    return info.get("url") or ""
+
+
 def upgrade(package_name):
     try:
         import ensurepip
