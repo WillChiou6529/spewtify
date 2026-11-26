@@ -105,6 +105,57 @@ fun ChartCardRow(
     }
 }
 
+/** Spotify 式大方卡（「熱門專輯和單曲」等）：大封面＋粗體標題＋灰色副標。 */
+data class BigSquare(val key: String, val thumbnailUrl: String?, val title: String, val subtitle: String?)
+
+@Composable
+fun BigSquareRow(
+    items: List<BigSquare>,
+    onClick: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues()
+) {
+    val (colorPalette, typography) = LocalAppearance.current
+    val px = BigCard.px
+    LazyRow(modifier = modifier, contentPadding = contentPadding) {
+        items(count = items.size, key = { items[it].key }) { index ->
+            val item = items[index]
+            Column(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .width(BigCard)
+                    .clickable { onClick(index) }
+            ) {
+                AsyncImage(
+                    model = item.thumbnailUrl?.thumbnail(px),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(BigCard)
+                        .clip(6.dp.roundedShape)
+                        .background(colorPalette.background2)
+                )
+                BasicText(
+                    text = item.title,
+                    style = typography.xs.semiBold.color(colorPalette.text),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+                item.subtitle?.let {
+                    BasicText(
+                        text = it,
+                        style = typography.xxs.color(colorPalette.textSecondary),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** Spotify 式「熱門藝人」：大圓形頭像＋名字。 */
 @Composable
 fun ArtistCircleRow(

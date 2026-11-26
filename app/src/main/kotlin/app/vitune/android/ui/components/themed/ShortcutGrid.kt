@@ -109,7 +109,7 @@ private fun ShortcutTile(shortcut: Shortcut, modifier: Modifier = Modifier) {
         }
         BasicText(
             text = shortcut.title,
-            style = typography.xxs.semiBold.copy(color = colorPalette.text),
+            style = typography.xs.semiBold.copy(color = colorPalette.text),
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier

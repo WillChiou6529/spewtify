@@ -40,6 +40,10 @@ import app.vitune.android.tagging.catching
 import app.vitune.android.ui.components.themed.VibeRow
 import app.vitune.android.ui.components.themed.ArtistCircleRow
 import app.vitune.android.ui.components.themed.ChartCardRow
+import app.vitune.android.ui.components.themed.BigSquare
+import app.vitune.android.ui.components.themed.BigSquareRow
+import app.vitune.android.utils.bold
+import androidx.compose.ui.unit.sp
 import app.vitune.android.charts.ChartCard
 import app.vitune.android.charts.ChartRegion
 import app.vitune.android.charts.Charts
@@ -244,8 +248,10 @@ fun QuickPicks(
 
     val sectionTextModifier = Modifier
         .padding(horizontal = 16.dp)
-        .padding(top = 24.dp, bottom = 8.dp)
+        .padding(top = 28.dp, bottom = 12.dp)
         .padding(endPaddingValues)
+    // Spotify 區塊標題：大、粗
+    val sectionTitleStyle = typography.l.bold.copy(fontSize = 22.sp, color = colorPalette.text)
 
     val [currentMediaId, playing] = playingSong(binder)
 
@@ -321,22 +327,6 @@ fun QuickPicks(
 
             ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
 
-            if (dailyMixes.isNotEmpty()) {
-                BasicText(
-                    text = stringResource(R.string.daily_mixes),
-                    style = typography.l.semiBold,
-                    modifier = sectionTextModifier
-                )
-                DailyMixRow(
-                    mixes = dailyMixes,
-                    contentPadding = endPaddingValues,
-                    onClick = { mix ->
-                        binder?.stopRadio()
-                        binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
-                    }
-                )
-            }
-
             relatedPageResult?.getOrNull()?.let { related ->
                 BasicText(
                     text = stringResource(R.string.home_start_listening_subtitle),
@@ -348,7 +338,7 @@ fun QuickPicks(
                 )
                 BasicText(
                     text = stringResource(R.string.home_start_listening),
-                    style = typography.l.semiBold,
+                    style = sectionTitleStyle,
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .padding(top = 2.dp, bottom = 8.dp)
@@ -443,10 +433,31 @@ fun QuickPicks(
                     }
                 }
 
+                // Spotify 順序：開始聆聽 → 熱門專輯和單曲（大方卡）→ 排行榜 → 熱門藝人 → 為你打造
+                related.albums?.takeIf { it.isNotEmpty() }?.let { albums ->
+                    BasicText(
+                        text = stringResource(R.string.popular_albums_and_singles),
+                        style = sectionTitleStyle,
+                        modifier = sectionTextModifier
+                    )
+                    BigSquareRow(
+                        items = albums.map {
+                            BigSquare(
+                                key = it.key,
+                                thumbnailUrl = it.thumbnail?.url,
+                                title = it.info?.name.orEmpty(),
+                                subtitle = it.authors?.joinToString(", ") { a -> a.name.orEmpty() }
+                            )
+                        },
+                        onClick = { index -> albums.getOrNull(index)?.let(onAlbumClick) },
+                        contentPadding = endPaddingValues
+                    )
+                }
+
                 if (chartCards.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.charts),
-                        style = typography.l.semiBold,
+                        style = sectionTitleStyle,
                         modifier = sectionTextModifier
                     )
                     ChartCardRow(
@@ -459,7 +470,7 @@ fun QuickPicks(
                 if (chartArtists.isNotEmpty()) {
                     BasicText(
                         text = stringResource(R.string.popular_artists),
-                        style = typography.l.semiBold,
+                        style = sectionTitleStyle,
                         modifier = sectionTextModifier
                     )
                     ArtistCircleRow(
@@ -469,32 +480,26 @@ fun QuickPicks(
                     )
                 }
 
-                related.albums?.let { albums ->
+                if (dailyMixes.isNotEmpty()) {
                     BasicText(
-                        text = stringResource(R.string.related_albums),
-                        style = typography.m.semiBold,
+                        text = stringResource(R.string.daily_mixes),
+                        style = sectionTitleStyle,
                         modifier = sectionTextModifier
                     )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = albums,
-                            key = Innertube.AlbumItem::key
-                        ) { album ->
-                            AlbumItem(
-                                album = album,
-                                thumbnailSize = Dimensions.thumbnails.album,
-                                alternative = true,
-                                modifier = Modifier.clickable { onAlbumClick(album) }
-                            )
+                    DailyMixRow(
+                        mixes = dailyMixes,
+                        contentPadding = endPaddingValues,
+                        onClick = { mix ->
+                            binder?.stopRadio()
+                            binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
                         }
-                    }
+                    )
                 }
 
                 related.artists?.let { artists ->
                     BasicText(
                         text = stringResource(R.string.similar_artists),
-                        style = typography.m.semiBold,
+                        style = sectionTitleStyle,
                         modifier = sectionTextModifier
                     )
 
@@ -516,7 +521,7 @@ fun QuickPicks(
                 related.playlists?.let { playlists ->
                     BasicText(
                         text = stringResource(R.string.recommended_playlists),
-                        style = typography.m.semiBold,
+                        style = sectionTitleStyle,
                         modifier = Modifier
                             .padding(horizontal = 16.dp)
                             .padding(top = 24.dp, bottom = 8.dp)

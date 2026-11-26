@@ -338,17 +338,20 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                         )
                     }
 
-                    // 播放畫面往上拉開時，導覽列跟著往下滑出畫面
+                    // 播放畫面往上拉開時，導覽列跟著往下滑出畫面。
+                    // 這層外框是 AnimatedContent（不吃 align），所以包一個滿版 Box 再貼底，否則會跑到最上面。
                     if (!imeVisible) {
                         val expandFraction = with(playerBottomSheetState) {
                             ((value - collapsedBound) / (expandedBound - collapsedBound)).coerceIn(0f, 1f)
                         }
-                        SpewtifyBottomBar(
-                            bottomInset = bottomDp,
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .offset(y = (navBarDp + bottomDp) * expandFraction)
-                        )
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            SpewtifyBottomBar(
+                                bottomInset = bottomDp,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .offset(y = (navBarDp + bottomDp) * expandFraction)
+                            )
+                        }
                     }
 
                     BottomSheetMenu(

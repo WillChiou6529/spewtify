@@ -397,6 +397,7 @@
     <string name="nav_library">Your Library</string>
     <string name="search_box_hint">What do you want to listen to?</string>
     <string name="charts">Charts</string>
+    <string name="popular_albums_and_singles">Popular albums and singles</string>
     <string name="popular_artists">Popular artists</string>
     <string name="discover_new_music">Discover new music</string>
     <string name="browse_all">Browse all</string>
@@ -407,6 +408,7 @@
     <string name="tag_section_genres">Genres</string>
     <string name="tag_section_moods">Moods</string>
     <string name="vibe_title">What do you feel like?</string>
+    <string name="vibe_all">All</string>
     <string name="vibe_moods">Mood</string>
     <string name="vibe_situations">Right now I\'m…</string>
     <string name="vibe_generating">Mixing…</string>

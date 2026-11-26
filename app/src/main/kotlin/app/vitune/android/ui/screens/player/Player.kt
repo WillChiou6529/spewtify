@@ -197,9 +197,12 @@ fun Player(
         },
         backHandlerEnabled = !menuState.isDisplayed,
         collapsedContent = { innerModifier ->
+            // Spewtify：有底部導覽時，迷你播放列是浮在導覽列上方、左右留邊的圓角卡片（像 Spotify），
+            // 卡片色取自封面主色，底部一條細進度線
+            val spotifyCard = collapsedBottomExtra > 0.dp
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = if (spotifyCard) Alignment.CenterVertically else Alignment.Top,
                 modifier = Modifier
                     .let { modifier ->
                         if (horizontalSwipeToClose) modifier.onSwipe(
@@ -212,23 +215,51 @@ fun Player(
                         ) else modifier
                     }
                     .fillMaxSize()
-                    .clip(shape)
-                    .background(colorPalette.background1)
-                    .drawBehind {
-                        drawRect(
-                            color = colorPalette.collapsedPlayerProgressBar,
-                            topLeft = Offset.Zero,
-                            size = Size(
-                                width = runCatching {
-                                    size.width * (position.toFloat() / duration.absoluteValue)
-                                }.getOrElse { 0f },
-                                height = size.height
-                            )
-                        )
-                    }
+                    .then(
+                        if (spotifyCard) Modifier
+                            .padding(bottom = collapsedBottomExtra + horizontalBottomPaddingValues.calculateBottomPadding())
+                            .padding(horizontal = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(lerp(colorPalette.background1, colorPalette.accent, 0.35f))
+                            .drawBehind {
+                                val line = 2.dp.toPx()
+                                drawRect(
+                                    color = Color.White.copy(alpha = 0.25f),
+                                    topLeft = Offset(0f, size.height - line),
+                                    size = Size(size.width, line)
+                                )
+                                drawRect(
+                                    color = Color.White,
+                                    topLeft = Offset(0f, size.height - line),
+                                    size = Size(
+                                        width = runCatching {
+                                            size.width * (position.toFloat() / duration.absoluteValue)
+                                        }.getOrElse { 0f }.coerceIn(0f, size.width),
+                                        height = line
+                                    )
+                                )
+                            }
+                        else Modifier
+                            .clip(shape)
+                            .background(colorPalette.background1)
+                            .drawBehind {
+                                drawRect(
+                                    color = colorPalette.collapsedPlayerProgressBar,
+                                    topLeft = Offset.Zero,
+                                    size = Size(
+                                        width = runCatching {
+                                            size.width * (position.toFloat() / duration.absoluteValue)
+                                        }.getOrElse { 0f },
+                                        height = size.height
+                                    )
+                                )
+                            }
+                    )
                     .then(innerModifier)
-                    .padding(horizontalBottomPaddingValues)
-                    .padding(bottom = collapsedBottomExtra)
+                    .then(
+                        if (spotifyCard) Modifier.padding(horizontal = 4.dp)
+                        else Modifier.padding(horizontalBottomPaddingValues)
+                    )
             ) {
                 Spacer(modifier = Modifier.width(2.dp))
 

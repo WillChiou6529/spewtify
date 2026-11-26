@@ -125,7 +125,7 @@ fun HomeSearch(
         // 排行榜（國家切換）
         BasicText(
             text = stringResource(R.string.charts),
-            style = typography.l.semiBold,
+            style = typography.l.semiBold.copy(fontSize = 22.sp),
             modifier = sectionTextModifier
         )
         LazyRow(contentPadding = endPaddingValues) {
@@ -152,7 +152,7 @@ fun HomeSearch(
             if (page.artists.isNotEmpty()) {
                 BasicText(
                     text = stringResource(R.string.popular_artists),
-                    style = typography.l.semiBold,
+                    style = typography.l.semiBold.copy(fontSize = 22.sp),
                     modifier = sectionTextModifier
                 )
                 ArtistCircleRow(
@@ -167,7 +167,7 @@ fun HomeSearch(
             if (page.newReleaseAlbums.isNotEmpty()) {
                 BasicText(
                     text = stringResource(R.string.discover_new_music),
-                    style = typography.l.semiBold,
+                    style = typography.l.semiBold.copy(fontSize = 22.sp),
                     modifier = sectionTextModifier
                 )
                 LazyRow(contentPadding = endPaddingValues) {
@@ -185,7 +185,7 @@ fun HomeSearch(
             if (page.moods.isNotEmpty()) {
                 BasicText(
                     text = stringResource(R.string.browse_all),
-                    style = typography.l.semiBold,
+                    style = typography.l.semiBold.copy(fontSize = 22.sp),
                     modifier = sectionTextModifier
                 )
                 val moods = page.moods

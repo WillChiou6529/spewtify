@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,40 +35,50 @@ fun VibeRow(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) = LazyRow(modifier = modifier, contentPadding = contentPadding) {
+    // Spotify 標籤列第一個是選中的「所有」（綠底黑字）
+    item(key = "all") {
+        Chip(
+            text = stringResource(R.string.vibe_all),
+            selected = loading == null,
+            onClick = {},
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
     items(items = Vibe.entries, key = { it.id }) { vibe ->
-        VibeChip(
-            vibe = vibe,
-            isLoading = loading == vibe,
+        Chip(
+            text = if (loading == vibe) stringResource(R.string.vibe_generating) else vibe.displayName(),
+            selected = loading == vibe,
             isDimmed = loading != null && loading != vibe,
             onClick = { if (loading == null) onClick(vibe) },
-            modifier = Modifier.padding(start = if (vibe == Vibe.entries.first()) 16.dp else 8.dp)
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
 
+/** Spotify 膠囊標籤：灰底白字，選中＝綠底黑字。 */
 @Composable
-private fun VibeChip(
-    vibe: Vibe,
-    isLoading: Boolean,
-    isDimmed: Boolean,
+private fun Chip(
+    text: String,
+    selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDimmed: Boolean = false
 ) {
-    val typography = LocalAppearance.current.typography
+    val (colorPalette, typography) = LocalAppearance.current
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(36.dp)
+            .height(34.dp)
             .alpha(if (isDimmed) 0.4f else 1f)
-            .clip(18.dp.roundedShape)
-            .background(Brush.linearGradient(listOf(Color(vibe.colorFrom), Color(vibe.colorTo))))
+            .clip(17.dp.roundedShape)
+            .background(if (selected) Color(0xFF1ED760) else colorPalette.background2)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp)
     ) {
         BasicText(
-            text = if (isLoading) stringResource(R.string.vibe_generating) else vibe.displayName(),
-            style = typography.xs.semiBold.color(Color.White)
+            text = text,
+            style = typography.xs.semiBold.color(if (selected) Color.Black else colorPalette.text)
         )
     }
 }

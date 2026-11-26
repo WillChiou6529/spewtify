@@ -395,6 +395,7 @@
     <string name="nav_library">你的音樂庫</string>
     <string name="search_box_hint">想聽什麼？</string>
     <string name="charts">排行榜</string>
+    <string name="popular_albums_and_singles">熱門專輯和單曲</string>
     <string name="popular_artists">熱門藝人</string>
     <string name="discover_new_music">發掘新音樂</string>
     <string name="browse_all">瀏覽全部</string>
@@ -405,6 +406,7 @@
     <string name="tag_section_genres">曲風</string>
     <string name="tag_section_moods">心情</string>
     <string name="vibe_title">現在想聽什麼？</string>
+    <string name="vibe_all">所有</string>
     <string name="vibe_moods">今天的心情</string>
     <string name="vibe_situations">我正在…</string>
     <string name="vibe_generating">產生中…</string>
