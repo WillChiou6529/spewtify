@@ -25,6 +25,7 @@ import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrol
 import app.vitune.android.ui.components.themed.LayoutWithAdaptiveThumbnail
 import app.vitune.android.ui.components.themed.NonQueuedMediaItemMenu
 import app.vitune.android.ui.components.themed.SecondaryTextButton
+import app.vitune.android.ui.components.themed.SpotifyPlayRow
 import app.vitune.android.ui.items.SongItem
 import app.vitune.android.ui.items.SongItemPlaceholder
 import app.vitune.android.utils.PlaylistDownloadIcon
@@ -76,7 +77,9 @@ fun AlbumSongs(
                 key = "header",
                 contentType = 0
             ) {
+                // Spewtify：Spotify 版面——大封面在上 → 標題與操作 → 資訊 → 隨機＋綠色播放鍵
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (!isLandscape) thumbnailContent()
                     headerContent(
                         {
                             SecondaryTextButton(
@@ -94,8 +97,18 @@ fun AlbumSongs(
                         }
                     )
 
-                    if (!isLandscape) thumbnailContent()
                     afterHeaderContent?.invoke()
+                    SpotifyPlayRow(
+                        enabled = songs.isNotEmpty(),
+                        onShuffle = {
+                            binder?.stopRadio()
+                            binder?.player?.forcePlayFromBeginning(songs.shuffled().map(Song::asMediaItem))
+                        },
+                        onPlay = {
+                            binder?.stopRadio()
+                            binder?.player?.forcePlayFromBeginning(songs.map(Song::asMediaItem))
+                        }
+                    )
                 }
             }
 
@@ -137,17 +150,7 @@ fun AlbumSongs(
             }
         }
 
-        FloatingActionsContainerWithScrollToTop(
-            lazyListState = lazyListState,
-            icon = R.drawable.shuffle,
-            onClick = {
-                if (songs.isNotEmpty()) {
-                    binder?.stopRadio()
-                    binder?.player?.forcePlayFromBeginning(
-                        songs.shuffled().map(Song::asMediaItem)
-                    )
-                }
-            }
-        )
+        // Spotify 沒有浮動按鈕，只保留回到頂端
+        FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
     }
 }

@@ -3,6 +3,7 @@ package app.vitune.android.ui.components.themed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.vitune.android.ui.components.FadingRow
 import app.vitune.android.utils.medium
+import app.vitune.android.utils.bold
+import androidx.compose.ui.unit.sp
 import app.vitune.core.ui.Dimensions
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.shimmer
@@ -31,10 +34,11 @@ fun Header(
 ) = Header(
     modifier = modifier,
     titleContent = {
-        FadingRow {
+        // Spewtify：Spotify 式靠左粗體大標題
+        FadingRow(modifier = Modifier.fillMaxWidth()) {
             BasicText(
                 text = title,
-                style = LocalAppearance.current.typography.xxl.medium,
+                style = LocalAppearance.current.typography.xxl.bold.copy(fontSize = 26.sp),
                 maxLines = 1
             )
         }
@@ -47,20 +51,22 @@ fun Header(
     titleContent: @Composable () -> Unit,
     actionsContent: @Composable RowScope.() -> Unit,
     modifier: Modifier = Modifier
-) = Box(
-    contentAlignment = Alignment.CenterEnd,
+) = Column(
+    // Spewtify：標題靠左在上、操作按鈕一排在下（原本是靠右疊在一起）
     modifier = modifier
         .padding(horizontal = 16.dp)
-        .height(Dimensions.items.headerHeight)
+        .padding(top = 8.dp)
         .fillMaxWidth()
 ) {
-    titleContent()
+    Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxWidth()) {
+        titleContent()
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
-            .align(Alignment.BottomEnd)
+            .fillMaxWidth()
             .heightIn(min = 48.dp),
         content = actionsContent
     )

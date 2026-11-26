@@ -5,6 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.unit.dp
+import app.vitune.android.utils.semiBold
+import app.vitune.android.ui.components.themed.SpotifyPlayRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -196,15 +203,65 @@ fun PlaylistSongList(
                     key = "header",
                     contentType = 0
                 ) {
+                    // Spewtify：Spotify 版面——大封面 → 標題與操作 → 資訊 → 隨機＋綠色播放鍵
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        headerContent()
                         if (!isLandscape) thumbnailContent()
+                        headerContent()
                         PlaylistInfo(playlist = playlistPage)
+                        val items = playlistPage?.songsPage?.items.orEmpty()
+                        SpotifyPlayRow(
+                            enabled = items.isNotEmpty(),
+                            onShuffle = {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(items.shuffled().map(Innertube.SongItem::asMediaItem))
+                            },
+                            onPlay = {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(items.map(Innertube.SongItem::asMediaItem))
+                            }
+                        )
                     }
                 }
 
+                // 排行榜（標題有 百大／排行／熱播／發燒／Top）前面顯示名次
+                val isChart = playlistPage?.title.orEmpty().let { t ->
+                    listOf("百大", "排行", "熱播", "發燒", "Top", "Chart", "前 50").any { it in t }
+                }
+
                 itemsIndexed(items = playlistPage?.songsPage?.items ?: emptyList()) { index, song ->
-                    SongItem(
+                    if (isChart) Row(verticalAlignment = Alignment.CenterVertically) {
+                        BasicText(
+                            text = "${index + 1}",
+                            style = LocalAppearance.current.typography.s.semiBold.copy(
+                                color = LocalAppearance.current.colorPalette.text,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            ),
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .width(32.dp)
+                        )
+                        SongItem(
+                            song = song,
+                            thumbnailSize = Dimensions.thumbnails.song,
+                            modifier = Modifier
+                                .weight(1f)
+                                .combinedClickable(
+                                    onLongClick = {
+                                        menuState.display {
+                                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
+                                        }
+                                    },
+                                    onClick = {
+                                        playlistPage?.songsPage?.items?.map(Innertube.SongItem::asMediaItem)
+                                            ?.let { mediaItems ->
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlayAtIndex(mediaItems, index)
+                                            }
+                                    }
+                                ),
+                            isPlaying = playing && currentMediaId == song.key
+                        )
+                    } else SongItem(
                         song = song,
                         thumbnailSize = Dimensions.thumbnails.song,
                         modifier = Modifier
@@ -238,20 +295,8 @@ fun PlaylistSongList(
                 }
             }
 
-            FloatingActionsContainerWithScrollToTop(
-                lazyListState = lazyListState,
-                icon = R.drawable.shuffle,
-                onClick = {
-                    playlistPage?.songsPage?.items?.let { songs ->
-                        if (songs.isNotEmpty()) {
-                            binder?.stopRadio()
-                            binder?.player?.forcePlayFromBeginning(
-                                songs.shuffled().map(Innertube.SongItem::asMediaItem)
-                            )
-                        }
-                    }
-                }
-            )
+            // Spotify 沒有浮動按鈕，只保留回到頂端
+            FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
         }
     }
 }
