@@ -38,6 +38,14 @@ import app.vitune.android.tagging.Vibe
 import app.vitune.android.tagging.VibePlaylist
 import app.vitune.android.tagging.catching
 import app.vitune.android.ui.components.themed.VibeRow
+import app.vitune.android.ui.components.themed.ArtistCircleRow
+import app.vitune.android.ui.components.themed.ChartCardRow
+import app.vitune.android.charts.ChartCard
+import app.vitune.android.charts.ChartRegion
+import app.vitune.android.charts.Charts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import app.vitune.android.ui.components.themed.Shortcut
 import app.vitune.android.ui.components.themed.ShortcutGrid
 import app.vitune.android.tagging.tagDisplayName
@@ -102,7 +110,8 @@ fun QuickPicks(
     onPlaylistClick: (Innertube.PlaylistItem) -> Unit,
     onSearchClick: () -> Unit,
     onFavoritesClick: () -> Unit = {},
-    onLocalPlaylistClick: (Long) -> Unit = {}
+    onLocalPlaylistClick: (Long) -> Unit = {},
+    onSettingsClick: () -> Unit = {}
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
@@ -117,6 +126,14 @@ fun QuickPicks(
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
     val dailyMixes by produceState(initialValue = emptyList<DailyMix>()) {
         value = DailyMixes.load(context.applicationContext)
+    }
+
+    // Spewtify：排行榜（台灣、全球、日韓美）與台灣熱門藝人，記憶體快取 1 小時
+    val chartCards by produceState(initialValue = emptyList<ChartCard>()) {
+        value = catching { Charts.homeCards() }.getOrDefault(emptyList())
+    }
+    val chartArtists by produceState(initialValue = emptyList<Innertube.ArtistItem>()) {
+        value = catching { Charts.page(ChartRegion.TW)?.artists.orEmpty().take(20) }.getOrDefault(emptyList())
     }
 
     // Spewtify：Spotify 式首頁捷徑（收藏、Daily Mix、自己的播放清單、最近聽過的歌）
@@ -256,27 +273,32 @@ fun QuickPicks(
                         .asPaddingValues()
                 )
         ) {
-            Header(
-                title = stringResource(
-                    when (java.time.LocalTime.now().hour) {
-                        in 5..10 -> R.string.greeting_morning
-                        in 11..17 -> R.string.greeting_afternoon
-                        else -> R.string.greeting_evening
-                    }
-                ),
-                modifier = Modifier.padding(endPaddingValues)
-            )
-
-            ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
-
-            BasicText(
-                text = stringResource(R.string.vibe_title),
-                style = typography.m.semiBold,
-                modifier = sectionTextModifier
-            )
-            VibeRow(
+            // 頂部：設定（Spotify 頭像的位置）＋心情／情境標籤（Spotify「所有／音樂」標籤列的位置）
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(endPaddingValues)
+                    .padding(top = 12.dp, bottom = 16.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .padding(start = 16.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(colorPalette.background2)
+                        .clickable(onClick = onSettingsClick)
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.settings),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(colorPalette.text),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                VibeRow(
                 loading = loadingVibe,
-                contentPadding = endPaddingValues,
+                modifier = Modifier.weight(1f),
                 onClick = { vibe ->
                     loadingVibe = vibe
                     coroutineScope.launch {
@@ -295,11 +317,14 @@ fun QuickPicks(
                     }
                 }
             )
+            }
+
+            ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
 
             if (dailyMixes.isNotEmpty()) {
                 BasicText(
                     text = stringResource(R.string.daily_mixes),
-                    style = typography.m.semiBold,
+                    style = typography.l.semiBold,
                     modifier = sectionTextModifier
                 )
                 DailyMixRow(
@@ -314,18 +339,29 @@ fun QuickPicks(
 
             relatedPageResult?.getOrNull()?.let { related ->
                 BasicText(
-                    text = stringResource(R.string.home_recommended_songs),
-                    style = typography.m.semiBold,
-                    modifier = sectionTextModifier
+                    text = stringResource(R.string.home_start_listening_subtitle),
+                    style = typography.xs.secondary,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 24.dp)
+                        .padding(endPaddingValues)
+                )
+                BasicText(
+                    text = stringResource(R.string.home_start_listening),
+                    style = typography.l.semiBold,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 2.dp, bottom = 8.dp)
+                        .padding(endPaddingValues)
                 )
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
-                    rows = GridCells.Fixed(4),
+                    rows = GridCells.Fixed(3),
                     flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
                     contentPadding = endPaddingValues,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 4)
+                        .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 3)
                 ) {
                     trending?.let { song ->
                         item {
@@ -405,6 +441,32 @@ fun QuickPicks(
                             isPlaying = playing && currentMediaId == song.key
                         )
                     }
+                }
+
+                if (chartCards.isNotEmpty()) {
+                    BasicText(
+                        text = stringResource(R.string.charts),
+                        style = typography.l.semiBold,
+                        modifier = sectionTextModifier
+                    )
+                    ChartCardRow(
+                        cards = chartCards,
+                        onClick = onPlaylistClick,
+                        contentPadding = endPaddingValues
+                    )
+                }
+
+                if (chartArtists.isNotEmpty()) {
+                    BasicText(
+                        text = stringResource(R.string.popular_artists),
+                        style = typography.l.semiBold,
+                        modifier = sectionTextModifier
+                    )
+                    ArtistCircleRow(
+                        artists = chartArtists,
+                        onClick = onArtistClick,
+                        contentPadding = endPaddingValues
+                    )
                 }
 
                 related.albums?.let { albums ->

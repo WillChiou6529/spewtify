@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spewtify 底部導覽「首頁」圖示（實心房子，24dp） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3.2L2.5,11.3L4,13L5,12.2V20.5C5,21.05 5.45,21.5 6,21.5H10V15.5H14V21.5H18C18.55,21.5 19,21.05 19,20.5V12.2L20,13L21.5,11.3Z" />
+</vector>

@@ -114,7 +114,9 @@ fun Player(
         topStart = 12.dp,
         topEnd = 12.dp
     ),
-    windowInsets: WindowInsets = WindowInsets.systemBars
+    windowInsets: WindowInsets = WindowInsets.systemBars,
+    /** Spewtify：迷你播放列下方留給底部導覽列的高度（迷你播放列在導覽列上面，像 Spotify） */
+    collapsedBottomExtra: androidx.compose.ui.unit.Dp = 0.dp
 ) = with(PlayerPreferences) {
     val menuState = LocalMenuState.current
     val [colorPalette, typography, thumbnailCornerSize] = LocalAppearance.current
@@ -223,6 +225,7 @@ fun Player(
                     }
                     .then(innerModifier)
                     .padding(horizontalBottomPaddingValues)
+                    .padding(bottom = collapsedBottomExtra)
             ) {
                 Spacer(modifier = Modifier.width(2.dp))
 

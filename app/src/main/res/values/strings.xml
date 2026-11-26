@@ -387,6 +387,16 @@
     <string name="greeting_afternoon">Good afternoon</string>
     <string name="greeting_evening">Good evening</string>
     <string name="home_recommended_songs">Recommended songs</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_library">Your Library</string>
+    <string name="search_box_hint">What do you want to listen to?</string>
+    <string name="charts">Charts</string>
+    <string name="popular_artists">Popular artists</string>
+    <string name="discover_new_music">Discover new music</string>
+    <string name="browse_all">Browse all</string>
+    <string name="home_start_listening">Start listening</string>
+    <string name="home_start_listening_subtitle">Picked to match your taste</string>
     <string name="edit_tags">Edit tags</string>
     <string name="tag_section_situations">Situations</string>
     <string name="tag_section_genres">Genres</string>

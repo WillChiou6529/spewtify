@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.runtime.Composable
@@ -70,6 +71,8 @@ import app.vitune.android.service.downloadState
 import app.vitune.android.ui.components.BottomSheetMenu
 import app.vitune.android.ui.components.rememberBottomSheetState
 import app.vitune.android.ui.components.themed.LinearProgressIndicator
+import app.vitune.android.ui.components.themed.SpewtifyBottomBar
+import app.vitune.android.ui.components.themed.SpewtifyNav
 import app.vitune.android.ui.screens.albumRoute
 import app.vitune.android.ui.screens.artistRoute
 import app.vitune.android.ui.screens.home.HomeScreen
@@ -252,10 +255,12 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                 label = ""
             )
 
+            // Spewtify：底部導覽列（首頁／搜尋／音樂庫）在最底，迷你播放列疊在它上面，像 Spotify
+            val navBarDp = SpewtifyNav.Height
             val playerBottomSheetState = rememberBottomSheetState(
                 key = vm.binder,
                 dismissedBound = 0.dp,
-                collapsedBound = Dimensions.items.collapsedPlayerHeight + bottomDp,
+                collapsedBound = Dimensions.items.collapsedPlayerHeight + bottomDp + navBarDp,
                 expandedBound = maxHeight
             )
 
@@ -266,10 +271,11 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                 imeVisible,
                 imeBottomDp
             ) {
+                // 沒在播歌時也要讓出導覽列的高度；打字（鍵盤）時導覽列隱藏
                 val bottom =
                     if (imeVisible) imeBottomDp.coerceAtLeast(playerBottomSheetState.value)
                     else playerBottomSheetState.value.coerceIn(
-                        animatedBottomDp..playerBottomSheetState.collapsedBound
+                        (animatedBottomDp + navBarDp)..playerBottomSheetState.collapsedBound
                     )
 
                 windowInsets
@@ -327,7 +333,21 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                     ) {
                         Player(
                             layoutState = playerBottomSheetState,
-                            modifier = Modifier.align(Alignment.BottomCenter)
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            collapsedBottomExtra = navBarDp
+                        )
+                    }
+
+                    // 播放畫面往上拉開時，導覽列跟著往下滑出畫面
+                    if (!imeVisible) {
+                        val expandFraction = with(playerBottomSheetState) {
+                            ((value - collapsedBound) / (expandedBound - collapsedBound)).coerceIn(0f, 1f)
+                        }
+                        SpewtifyBottomBar(
+                            bottomInset = bottomDp,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .offset(y = (navBarDp + bottomDp) * expandFraction)
                         )
                     }
 

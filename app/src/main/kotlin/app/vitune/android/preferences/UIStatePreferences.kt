@@ -12,6 +12,10 @@ import kotlinx.collections.immutable.toImmutableList
 
 object UIStatePreferences : GlobalPreferencesHolder() {
     var homeScreenTabIndex by int(0)
+    /** Spewtify：「你的音樂庫」上方標籤（0 歌曲、1 播放清單、2 藝人、3 專輯、4 本機） */
+    var libraryTabIndex by int(0)
+    /** Spewtify：搜尋頁排行榜選的國家（TW、ZZ＝全球、KR、JP、US） */
+    var chartsCountry by string("TW")
     var searchResultScreenTabIndex by int(0)
 
     var artistScreenTabIndexProperty = int(0)

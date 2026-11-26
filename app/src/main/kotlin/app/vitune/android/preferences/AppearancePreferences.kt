@@ -41,5 +41,6 @@ object AppearancePreferences : GlobalPreferencesHolder() {
     var maxThumbnailSize by int(1920)
     var hideExplicit by boolean(false)
     var autoPip by boolean(false)
-    var openPlayer by boolean(true)
+    // Spewtify：點歌不自動展開播放畫面（像 Spotify，換歌不用每次滑下去）；設定裡仍可打開
+    var openPlayer by boolean(false)
 }

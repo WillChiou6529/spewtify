@@ -1,7 +1,14 @@
 package app.vitune.android.ui.screens.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Modifier
+import app.vitune.android.ui.components.themed.SpewtifyNav
+import app.vitune.core.ui.LocalAppearance
 import app.vitune.android.R
 import app.vitune.android.models.toUiMood
 import app.vitune.android.preferences.UIStatePreferences
@@ -59,27 +66,23 @@ fun HomeScreen() {
             MoreAlbumsScreen()
         }
 
+        // Spewtify：點底部導覽的分頁時，從專輯／藝人等子頁回到分頁本身
+        LaunchedEffect(Unit) {
+            SpewtifyNav.resetToRoot.collect { replace(null) }
+        }
+
         Content {
-            Scaffold(
-                key = "home",
-                topIconButtonId = R.drawable.settings,
-                onTopIconButtonClick = { settingsRoute() },
-                tabIndex = UIStatePreferences.homeScreenTabIndex,
-                onTabChange = { UIStatePreferences.homeScreenTabIndex = it },
-                tabColumnContent = {
-                    tab(0, R.string.quick_picks, R.drawable.sparkles)
-                    tab(1, R.string.discover, R.drawable.globe)
-                    tab(2, R.string.songs, R.drawable.musical_notes)
-                    tab(3, R.string.playlists, R.drawable.playlist)
-                    tab(4, R.string.artists, R.drawable.person)
-                    tab(5, R.string.albums, R.drawable.disc)
-                    tab(6, R.string.local, R.drawable.download)
-                }
-            ) { currentTabIndex ->
+            // Spewtify：Spotify 式 3 個分頁（首頁／搜尋／你的音樂庫），導覽列在 MainApplication 最底
+            val currentTabIndex = SpewtifyNav.currentTab()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(LocalAppearance.current.colorPalette.background0)
+            ) {
                 saveableStateHolder.SaveableStateProvider(key = currentTabIndex) {
                     val onSearchClick = { searchRoute("") }
                     when (currentTabIndex) {
-                        0 -> QuickPicks(
+                        SpewtifyNav.TAB_HOME -> QuickPicks(
                             onAlbumClick = { albumRoute(it.key) },
                             onArtistClick = { artistRoute(it.key) },
                             onPlaylistClick = {
@@ -94,47 +97,47 @@ fun HomeScreen() {
                             onFavoritesClick = {
                                 builtInPlaylistRoute(app.vitune.core.data.enums.BuiltInPlaylist.Favorites)
                             },
-                            onLocalPlaylistClick = { localPlaylistRoute(it) }
+                            onLocalPlaylistClick = { localPlaylistRoute(it) },
+                            onSettingsClick = { settingsRoute() }
                         )
 
-                        1 -> HomeDiscovery(
-                            onMoodClick = { mood -> moodRoute(mood.toUiMood()) },
-                            onNewReleaseAlbumClick = { albumRoute(it) },
+                        SpewtifyNav.TAB_SEARCH -> HomeSearch(
                             onSearchClick = onSearchClick,
-                            onMoreMoodsClick = { moreMoodsRoute() },
-                            onMoreAlbumsClick = { moreAlbumsRoute() },
-                            onPlaylistClick = { playlistRoute(it, null, null, true) }
+                            onPlaylistClick = { playlistRoute(it.key, null, null, false) },
+                            onArtistClick = { artistRoute(it.key) },
+                            onAlbumClick = { albumRoute(it) },
+                            onMoodClick = { mood -> moodRoute(mood.toUiMood()) }
                         )
 
-                        2 -> HomeSongs(
-                            onSearchClick = onSearchClick
-                        )
-
-                        3 -> HomePlaylists(
-                            onBuiltInPlaylist = { builtInPlaylistRoute(it) },
-                            onPlaylistClick = { localPlaylistRoute(it.id) },
-                            onPipedPlaylistClick = { session, playlist ->
-                                pipedPlaylistRoute(
-                                    p0 = session.apiBaseUrl.toString(),
-                                    p1 = session.token,
-                                    p2 = playlist.id.toString()
+                        else -> HomeLibrary(
+                            songs = { HomeSongs(onSearchClick = onSearchClick) },
+                            playlists = {
+                                HomePlaylists(
+                                    onBuiltInPlaylist = { builtInPlaylistRoute(it) },
+                                    onPlaylistClick = { localPlaylistRoute(it.id) },
+                                    onPipedPlaylistClick = { session, playlist ->
+                                        pipedPlaylistRoute(
+                                            p0 = session.apiBaseUrl.toString(),
+                                            p1 = session.token,
+                                            p2 = playlist.id.toString()
+                                        )
+                                    },
+                                    onSearchClick = onSearchClick
                                 )
                             },
-                            onSearchClick = onSearchClick
-                        )
-
-                        4 -> HomeArtistList(
-                            onArtistClick = { artistRoute(it.id) },
-                            onSearchClick = onSearchClick
-                        )
-
-                        5 -> HomeAlbums(
-                            onAlbumClick = { albumRoute(it.id) },
-                            onSearchClick = onSearchClick
-                        )
-
-                        6 -> HomeLocalSongs(
-                            onSearchClick = onSearchClick
+                            artists = {
+                                HomeArtistList(
+                                    onArtistClick = { artistRoute(it.id) },
+                                    onSearchClick = onSearchClick
+                                )
+                            },
+                            albums = {
+                                HomeAlbums(
+                                    onAlbumClick = { albumRoute(it.id) },
+                                    onSearchClick = onSearchClick
+                                )
+                            },
+                            local = { HomeLocalSongs(onSearchClick = onSearchClick) }
                         )
                     }
                 }
