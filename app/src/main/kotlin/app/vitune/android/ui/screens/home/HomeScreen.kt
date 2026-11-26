@@ -110,34 +110,17 @@ fun HomeScreen() {
                         )
 
                         else -> HomeLibrary(
-                            songs = { HomeSongs(onSearchClick = onSearchClick) },
-                            playlists = {
-                                HomePlaylists(
-                                    onBuiltInPlaylist = { builtInPlaylistRoute(it) },
-                                    onPlaylistClick = { localPlaylistRoute(it.id) },
-                                    onPipedPlaylistClick = { session, playlist ->
-                                        pipedPlaylistRoute(
-                                            p0 = session.apiBaseUrl.toString(),
-                                            p1 = session.token,
-                                            p2 = playlist.id.toString()
-                                        )
-                                    },
-                                    onSearchClick = onSearchClick
-                                )
+                            onSettingsClick = { settingsRoute() },
+                            onSearchClick = onSearchClick,
+                            onFavoritesClick = {
+                                builtInPlaylistRoute(app.vitune.core.data.enums.BuiltInPlaylist.Favorites)
                             },
-                            artists = {
-                                HomeArtistList(
-                                    onArtistClick = { artistRoute(it.id) },
-                                    onSearchClick = onSearchClick
-                                )
+                            onOfflineClick = {
+                                builtInPlaylistRoute(app.vitune.core.data.enums.BuiltInPlaylist.Offline)
                             },
-                            albums = {
-                                HomeAlbums(
-                                    onAlbumClick = { albumRoute(it.id) },
-                                    onSearchClick = onSearchClick
-                                )
-                            },
-                            local = { HomeLocalSongs(onSearchClick = onSearchClick) }
+                            onPlaylistClick = { localPlaylistRoute(it) },
+                            onArtistClick = { artistRoute(it) },
+                            onAlbumClick = { albumRoute(it) }
                         )
                     }
                 }

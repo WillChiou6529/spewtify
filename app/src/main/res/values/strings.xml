@@ -399,6 +399,16 @@
     <string name="charts">Charts</string>
     <string name="popular_albums_and_singles">Popular albums and singles</string>
     <string name="popular_radio">Popular radio</string>
+    <string name="recently_played">Recently played</string>
+    <string name="format_song_subtitle">Song • %1$s</string>
+    <string name="library_type_playlist">Playlist</string>
+    <string name="library_type_artist">Artist</string>
+    <string name="library_type_album">Album</string>
+    <string name="format_library_song_count">%1$d songs</string>
+    <string name="library_sort_recent">Recently added</string>
+    <string name="library_sort_alphabetical">Alphabetical</string>
+    <string name="liked_songs">Liked Songs</string>
+    <string name="library_downloaded">Downloaded</string>
     <string name="radio_label">RADIO</string>
     <string name="format_radio_subtitle">%1$s and similar artists</string>
     <string name="player_now_playing">Now playing</string>

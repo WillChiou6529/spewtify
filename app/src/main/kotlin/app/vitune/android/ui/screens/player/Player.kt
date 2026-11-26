@@ -353,7 +353,7 @@ fun Player(
                 ) {
                     // Spotify 卡片：⊕（加入收藏）＋播放鍵，沒有上一首／下一首
                     if (spotifyCard) IconButton(
-                        icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                        icon = if (likedAt == null) R.drawable.add_circle else R.drawable.check_circle,
                         color = if (likedAt == null) colorPalette.text else Color(0xFF1ED760),
                         onClick = { likedAt = if (likedAt == null) System.currentTimeMillis() else null },
                         modifier = Modifier

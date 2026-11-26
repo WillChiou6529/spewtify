@@ -149,7 +149,7 @@ fun QuickPicks(
         .collectAsState(initial = emptyList())
     val recentSongs by remember { Database.recentSongs(8).distinctUntilChanged() }
         .collectAsState(initial = emptyList())
-    val favoritesTitle = stringResource(R.string.favorites)
+    val favoritesTitle = stringResource(R.string.liked_songs)
     val mixFormat = stringResource(R.string.format_daily_mix)
     val shortcuts = buildList {
         add(

@@ -397,6 +397,16 @@
     <string name="charts">排行榜</string>
     <string name="popular_albums_and_singles">熱門專輯和單曲</string>
     <string name="popular_radio">熱門電台</string>
+    <string name="recently_played">最近播放</string>
+    <string name="format_song_subtitle">歌曲 • %1$s</string>
+    <string name="library_type_playlist">播放清單</string>
+    <string name="library_type_artist">藝人</string>
+    <string name="library_type_album">專輯</string>
+    <string name="format_library_song_count">%1$d 首歌曲</string>
+    <string name="library_sort_recent">最近新增</string>
+    <string name="library_sort_alphabetical">字母順序</string>
+    <string name="liked_songs">已按讚的歌曲</string>
+    <string name="library_downloaded">已下載</string>
     <string name="radio_label">電台</string>
     <string name="format_radio_subtitle">%1$s 和相似藝人</string>
     <string name="player_now_playing">正在播放</string>

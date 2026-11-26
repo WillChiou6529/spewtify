@@ -373,7 +373,9 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
 
                         reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED &&
                             mediaItem.mediaMetadata.extras?.songBundle?.isFromPersistentQueue != true -> {
+                            // Spewtify：不自動展開時，也要讓迷你播放列出現（否則從沒在播的狀態點歌，下方什麼都沒有）
                             if (AppearancePreferences.openPlayer) playerBottomSheetState.expandSoft()
+                            else if (playerBottomSheetState.dismissed) playerBottomSheetState.collapseSoft()
                             else Unit
                         }
 

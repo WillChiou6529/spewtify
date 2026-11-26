@@ -178,12 +178,12 @@ private fun SpotifyControls(
                 )
             }
             IconButton(
-                icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                icon = if (likedAt == null) R.drawable.add_circle else R.drawable.check_circle,
                 color = if (likedAt == null) colorPalette.text else Color(0xFF1ED760),
                 onClick = { setLikedAt(if (likedAt == null) System.currentTimeMillis() else null) },
                 modifier = Modifier
                     .padding(start = 12.dp)
-                    .size(26.dp)
+                    .size(28.dp)
             )
         }
 
