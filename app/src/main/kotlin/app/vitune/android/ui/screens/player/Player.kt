@@ -412,6 +412,23 @@ fun Player(
     ) {
         var isShowingStatsForNerds by rememberSaveable { mutableStateOf(false) }
         var isShowingLyricsDialog by rememberSaveable { mutableStateOf(false) }
+        var audioDialogOpen by rememberSaveable { mutableStateOf(false) }
+        var boostDialogOpen by rememberSaveable { mutableStateOf(false) }
+
+        val openPlayerMenu = {
+            mediaItem?.let {
+                menuState.display {
+                    PlayerMenu(
+                        onDismiss = menuState::hide,
+                        mediaItem = it,
+                        binder = binder ?: return@display,
+                        onShowSpeedDialog = { audioDialogOpen = true },
+                        onShowNormalizationDialog = { boostDialogOpen = true }.takeIf { volumeNormalization }
+                    )
+                }
+            }
+            Unit
+        }
 
         if (isShowingLyricsDialog) LyricsDialog(onDismiss = { isShowingLyricsDialog = false })
 
@@ -535,8 +552,51 @@ fun Player(
             )
         } else Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = containerModifier.padding(top = 54.dp)
+            modifier = containerModifier.padding(top = 4.dp)
         ) {
+            // Spotify 頂列：⌄ 收起／中間「正在播放」＋來源（專輯或歌手）／⋮ 選單
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .padding(horizontal = 12.dp)
+            ) {
+                IconButton(
+                    icon = R.drawable.chevron_down,
+                    color = colorPalette.text,
+                    onClick = { layoutState.collapseSoft() },
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(22.dp)
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    val album = metadata?.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+                    BasicText(
+                        text = stringResource(if (album != null) R.string.player_playing_from_album else R.string.player_now_playing),
+                        style = typography.xxs.copy(color = colorPalette.text),
+                        maxLines = 1
+                    )
+                    BasicText(
+                        text = album ?: metadata?.artist?.toString().orEmpty(),
+                        style = typography.xs.semiBold.copy(color = colorPalette.text),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(
+                    icon = R.drawable.ellipsis_vertical,
+                    color = colorPalette.text,
+                    onClick = openPlayerMenu,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(22.dp)
+                )
+            }
+
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.weight(1.25f)
@@ -551,8 +611,6 @@ fun Player(
                     .weight(1f)
             )
         }
-
-        var audioDialogOpen by rememberSaveable { mutableStateOf(false) }
 
         if (audioDialogOpen) SliderDialog(
             onDismiss = { audioDialogOpen = false },
@@ -595,8 +653,6 @@ fun Player(
                 )
             }
         }
-
-        var boostDialogOpen by rememberSaveable { mutableStateOf(false) }
 
         if (boostDialogOpen) {
             fun submit(state: Float) = transaction {

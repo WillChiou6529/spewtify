@@ -156,6 +156,84 @@ fun BigSquareRow(
     }
 }
 
+/** 電台卡的底色（Spotify 熱門電台那種粉彩色塊） */
+private val radioColors = listOf(
+    0xFFB8B5F5, 0xFFC5E86C, 0xFF9FD8F0, 0xFFF5B8C8, 0xFFF7D774, 0xFFA8E6CF, 0xFFFFB38A, 0xFFD0B3FF
+)
+
+/**
+ * Spotify 式「熱門電台」：彩色方卡、上方「電台」標籤、中間藝人圓形頭像、左下藝人名；
+ * 卡片下方一行說明。loadingKey＝正在啟動的那張（顯示淡化）。
+ */
+@Composable
+fun RadioCardRow(
+    artists: List<Innertube.ArtistItem>,
+    loadingKey: String?,
+    onClick: (Innertube.ArtistItem) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues()
+) {
+    val (colorPalette, typography) = LocalAppearance.current
+    val px = 96.dp.px
+    LazyRow(modifier = modifier, contentPadding = contentPadding) {
+        items(count = artists.size, key = { artists[it].key }) { index ->
+            val artist = artists[index]
+            val bg = Color(radioColors[index % radioColors.size])
+            Column(
+                modifier = Modifier
+                    .padding(start = 16.dp)
+                    .width(BigCard)
+                    .clickable { if (loadingKey == null) onClick(artist) }
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(BigCard)
+                        .clip(6.dp.roundedShape)
+                        .background(bg)
+                        .then(if (loadingKey == artist.key) Modifier.background(Color.Black.copy(alpha = 0.25f)) else Modifier)
+                ) {
+                    BasicText(
+                        text = androidx.compose.ui.res.stringResource(app.vitune.android.R.string.radio_label),
+                        style = typography.xxs.semiBold.color(Color(0xFF121212)),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    )
+                    AsyncImage(
+                        model = artist.thumbnail?.url?.thumbnail(px),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(96.dp)
+                            .clip(CircleShape)
+                            .background(colorPalette.background2)
+                    )
+                    BasicText(
+                        text = artist.info?.name.orEmpty(),
+                        style = typography.s.semiBold.color(Color(0xFF121212)),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
+                    )
+                }
+                BasicText(
+                    text = androidx.compose.ui.res.stringResource(
+                        app.vitune.android.R.string.format_radio_subtitle,
+                        artist.info?.name.orEmpty()
+                    ),
+                    style = typography.xxs.color(colorPalette.textSecondary),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+        }
+    }
+}
+
 /** Spotify 式「熱門藝人」：大圓形頭像＋名字。 */
 @Composable
 fun ArtistCircleRow(

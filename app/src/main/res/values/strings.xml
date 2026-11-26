@@ -398,6 +398,11 @@
     <string name="search_box_hint">What do you want to listen to?</string>
     <string name="charts">Charts</string>
     <string name="popular_albums_and_singles">Popular albums and singles</string>
+    <string name="popular_radio">Popular radio</string>
+    <string name="radio_label">RADIO</string>
+    <string name="format_radio_subtitle">%1$s and similar artists</string>
+    <string name="player_now_playing">Now playing</string>
+    <string name="player_playing_from_album">Playing from album</string>
     <string name="popular_artists">Popular artists</string>
     <string name="discover_new_music">Discover new music</string>
     <string name="browse_all">Browse all</string>

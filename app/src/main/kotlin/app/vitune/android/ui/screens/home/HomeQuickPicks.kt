@@ -42,6 +42,9 @@ import app.vitune.android.ui.components.themed.ArtistCircleRow
 import app.vitune.android.ui.components.themed.ChartCardRow
 import app.vitune.android.ui.components.themed.BigSquare
 import app.vitune.android.ui.components.themed.BigSquareRow
+import app.vitune.android.ui.components.themed.RadioCardRow
+import app.vitune.providers.innertube.models.bodies.BrowseBody
+import app.vitune.providers.innertube.requests.artistPage
 import app.vitune.android.utils.bold
 import androidx.compose.ui.unit.sp
 import app.vitune.android.charts.ChartCard
@@ -125,6 +128,7 @@ fun QuickPicks(
 
     // Spewtify：「現在想聽什麼？」正在產生歌單的那個選項（null＝沒有）
     var loadingVibe by remember { mutableStateOf<Vibe?>(null) }
+    var loadingRadio by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
@@ -476,6 +480,38 @@ fun QuickPicks(
                     ArtistCircleRow(
                         artists = chartArtists,
                         onClick = onArtistClick,
+                        contentPadding = endPaddingValues
+                    )
+                }
+
+                // 熱門電台：點了抓藝人頁的電台入口，直接開播
+                if (chartArtists.isNotEmpty()) {
+                    BasicText(
+                        text = stringResource(R.string.popular_radio),
+                        style = sectionTitleStyle,
+                        modifier = sectionTextModifier
+                    )
+                    RadioCardRow(
+                        artists = chartArtists.take(12),
+                        loadingKey = loadingRadio,
+                        onClick = { artist ->
+                            loadingRadio = artist.key
+                            coroutineScope.launch {
+                                val endpoint = try {
+                                    catching {
+                                        Innertube.artistPage(BrowseBody(browseId = artist.key))?.getOrNull()?.radioEndpoint
+                                    }.getOrNull()
+                                } finally {
+                                    loadingRadio = null
+                                }
+                                if (endpoint == null) {
+                                    context.toast(context.getString(R.string.vibe_empty))
+                                    return@launch
+                                }
+                                binder?.stopRadio()
+                                binder?.playRadio(endpoint)
+                            }
+                        },
                         contentPadding = endPaddingValues
                     )
                 }

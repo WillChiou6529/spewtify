@@ -396,6 +396,11 @@
     <string name="search_box_hint">想聽什麼？</string>
     <string name="charts">排行榜</string>
     <string name="popular_albums_and_singles">熱門專輯和單曲</string>
+    <string name="popular_radio">熱門電台</string>
+    <string name="radio_label">電台</string>
+    <string name="format_radio_subtitle">%1$s 和相似藝人</string>
+    <string name="player_now_playing">正在播放</string>
+    <string name="player_playing_from_album">播放自專輯</string>
     <string name="popular_artists">熱門藝人</string>
     <string name="discover_new_music">發掘新音樂</string>
     <string name="browse_all">瀏覽全部</string>
