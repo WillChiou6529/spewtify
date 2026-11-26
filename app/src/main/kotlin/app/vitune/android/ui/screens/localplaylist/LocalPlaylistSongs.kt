@@ -52,6 +52,7 @@ import app.vitune.android.ui.components.themed.Menu
 import app.vitune.android.ui.components.themed.MenuEntry
 import app.vitune.android.ui.components.themed.ReorderHandle
 import app.vitune.android.ui.components.themed.SecondaryTextButton
+import app.vitune.android.ui.components.themed.SpotifyPlayRow
 import app.vitune.android.ui.components.themed.TextFieldDialog
 import app.vitune.android.ui.items.SongItem
 import app.vitune.android.utils.PlaylistDownloadIcon
@@ -161,7 +162,9 @@ fun LocalPlaylistSongs(
                     key = "header",
                     contentType = 0
                 ) {
+                    // Spewtify：Spotify 版面——封面 → 標題與操作 → 隨機＋綠色播放鍵
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        if (!isLandscape) thumbnailContent()
                         Header(
                             title = playlist.name,
                             modifier = Modifier.padding(bottom = 8.dp)
@@ -266,7 +269,17 @@ fun LocalPlaylistSongs(
                             )
                         }
 
-                        if (!isLandscape) thumbnailContent()
+                        SpotifyPlayRow(
+                            enabled = songs.isNotEmpty(),
+                            onShuffle = {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(songs.shuffled().map { it.asMediaItem })
+                            },
+                            onPlay = {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(songs.map { it.asMediaItem })
+                            }
+                        )
                     }
                 }
 
@@ -317,18 +330,10 @@ fun LocalPlaylistSongs(
             }
         }
 
+        // Spotify 沒有浮動按鈕，只保留回到頂端
         FloatingActionsContainerWithScrollToTop(
             lazyListState = lazyListState,
-            icon = R.drawable.shuffle,
-            visible = !reorderingState.isDragging,
-            onClick = {
-                if (songs.isEmpty()) return@FloatingActionsContainerWithScrollToTop
-
-                binder?.stopRadio()
-                binder?.player?.forcePlayFromBeginning(
-                    songs.shuffled().map { it.asMediaItem }
-                )
-            }
+            visible = !reorderingState.isDragging
         )
     }
 }

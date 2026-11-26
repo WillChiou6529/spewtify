@@ -3,6 +3,16 @@ package app.vitune.android.ui.screens.builtinplaylist
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import app.vitune.android.utils.semiBold
+import app.vitune.android.ui.components.themed.SpotifyPlayRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -68,7 +78,7 @@ fun BuiltInPlaylistSongs(
     builtInPlaylist: BuiltInPlaylist,
     modifier: Modifier = Modifier
 ) = with(DataPreferences) {
-    val (colorPalette) = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
     val menuState = LocalMenuState.current
 
@@ -145,14 +155,56 @@ fun BuiltInPlaylistSongs(
                 .background(colorPalette.background0)
                 .fillMaxSize()
         ) {
+            // Spewtify：「已按讚的歌曲」Spotify 紫藍漸層標頭（大標題＋首數）
+            if (builtInPlaylist == BuiltInPlaylist.Favorites) item(key = "liked_banner") {
+                Box(
+                    contentAlignment = Alignment.BottomStart,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF5038A0), Color(0xFF2A1F5C), colorPalette.background0)
+                            )
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Column {
+                        BasicText(
+                            text = stringResource(R.string.liked_songs),
+                            style = typography.xxl.semiBold.copy(fontSize = 30.sp, color = Color.White)
+                        )
+                        BasicText(
+                            text = stringResource(R.string.format_library_song_count, shown.size),
+                            style = typography.xs.copy(color = Color.White.copy(alpha = 0.75f)),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            item(key = "spotify_play") {
+                SpotifyPlayRow(
+                    enabled = shown.isNotEmpty(),
+                    onShuffle = {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(shown.shuffled().map(Song::asMediaItem))
+                    },
+                    onPlay = {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(shown.map(Song::asMediaItem))
+                    }
+                )
+            }
+
             item(
                 key = "header",
                 contentType = 0
             ) {
                 Header(
                     title = when (builtInPlaylist) {
-                        BuiltInPlaylist.Favorites -> stringResource(R.string.favorites) +
-                            (selectedTag?.let { " · ${tagDisplayName(it)}" } ?: "")
+                        // 已按讚的歌曲標題在上面的漸層標頭；這裡只顯示目前篩選的曲風
+                        BuiltInPlaylist.Favorites -> selectedTag?.let { tagDisplayName(it) }.orEmpty()
 
                         BuiltInPlaylist.Offline -> stringResource(R.string.offline)
 
@@ -263,16 +315,7 @@ fun BuiltInPlaylistSongs(
             }
         }
 
-        FloatingActionsContainerWithScrollToTop(
-            lazyListState = lazyListState,
-            icon = R.drawable.shuffle,
-            onClick = {
-                if (shown.isEmpty()) return@FloatingActionsContainerWithScrollToTop
-                binder?.stopRadio()
-                binder?.player?.forcePlayFromBeginning(
-                    shown.shuffled().map(Song::asMediaItem)
-                )
-            }
-        )
+        // Spotify 沒有浮動按鈕，只保留回到頂端
+        FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
     }
 }
