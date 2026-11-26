@@ -100,4 +100,14 @@ class TagNormalizerTest {
         assertEquals(Tag.entries.size, Tag.entries.map { it.id }.toSet().size)
         Tag.entries.forEach { assertEquals(it, Tag.fromId(it.id)) }
     }
+
+    @Test
+    fun genericWordsYieldToSpecificGenres() {
+        assertEquals(Tag.ROCK, TagNormalizer.normalize("piano rock"))
+        assertEquals(Tag.HIPHOP, TagNormalizer.normalize("instrumental hip hop"))
+        assertEquals(Tag.METAL, TagNormalizer.normalize("alternative metal"))
+        // 單獨出現或沒有更具體的曲風時，泛稱照用
+        assertEquals(Tag.CLASSICAL, TagNormalizer.normalize("piano"))
+        assertEquals(Tag.CLASSICAL, TagNormalizer.normalize("solo piano"))
+    }
 }

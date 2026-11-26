@@ -39,6 +39,22 @@ class SituationTest {
     }
 
     @Test
+    fun rockIsRideButBalladIsNot() {
+        assertTrue(Situation.RIDE in Situation.of(tags(Tag.ROCK to 1f)))
+        assertTrue(Situation.RIDE in Situation.of(tags(Tag.ENERGY to 0.8f)))
+        assertFalse(Situation.RIDE in Situation.of(tags(Tag.BALLAD to 1f, Tag.SAD to 0.8f)))
+        assertFalse(Situation.RIDE in Situation.of(tags(Tag.LOFI to 1f, Tag.CHILL to 0.8f)))
+    }
+
+    @Test
+    fun edmIsPartyButSadIsNot() {
+        assertTrue(Situation.PARTY in Situation.of(tags(Tag.ELECTRONIC to 1f, Tag.PARTY to 0.9f)))
+        assertTrue(Situation.PARTY in Situation.of(tags(Tag.LATIN to 1f)))
+        assertFalse(Situation.PARTY in Situation.of(tags(Tag.SAD to 1f, Tag.POP to 0.6f)))
+        assertFalse(Situation.PARTY in Situation.of(tags(Tag.CLASSICAL to 1f)))
+    }
+
+    @Test
     fun weakArtistGuessIsNotEnough() {
         // 只靠歌手推估、權重低的單一標籤，不該硬塞進情境
         assertTrue(Situation.of(tags(Tag.JAZZ to 0.4f)).isEmpty())

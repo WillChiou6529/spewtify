@@ -32,5 +32,11 @@ class TitleCleanerTest {
         assertEquals("Ed Sheeran", TitleCleaner.primaryArtist("Ed Sheeran & Justin Bieber"))
         assertEquals("五月天", TitleCleaner.primaryArtist("五月天 - Topic"))
         assertEquals(null, TitleCleaner.primaryArtist(null))
+        // 歌手名裡含 ft／feat／x 的字母不能被切開
+        assertEquals("Taylor Swift", TitleCleaner.primaryArtist("Taylor Swift"))
+        assertEquals("Daft Punk", TitleCleaner.primaryArtist("Daft Punk feat. Pharrell Williams"))
+        assertEquals("Lefty Gunplay", TitleCleaner.primaryArtist("Lefty Gunplay ft. Someone"))
+        assertEquals("Alex Warren", TitleCleaner.primaryArtist("Alex Warren x ROSÉ"))
+        assertEquals("Maxx", TitleCleaner.primaryArtist("Maxx"))
     }
 }

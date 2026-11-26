@@ -33,11 +33,12 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import app.vitune.android.tagging.Situations
-import app.vitune.android.ui.components.themed.SituationRow
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import androidx.compose.runtime.mutableStateOf
+import app.vitune.android.tagging.Vibe
+import app.vitune.android.tagging.VibePlaylist
+import app.vitune.android.tagging.catching
+import app.vitune.android.ui.components.themed.VibeRow
+import app.vitune.android.utils.toast
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import app.vitune.android.tagging.DailyMix
@@ -104,10 +105,8 @@ fun QuickPicks(
     val windowInsets = LocalPlayerAwareWindowInsets.current
     val context = LocalContext.current
 
-    // Spewtify：情境（讀書／運動／睡前／開車）首數，收藏或分類變動時自動更新
-    val situationCounts by remember {
-        Database.likedSongTags().map { Situations.counts(it) }.flowOn(Dispatchers.Default)
-    }.collectAsState(initial = emptyMap())
+    // Spewtify：「現在想聽什麼？」正在產生歌單的那個選項（null＝沒有）
+    var loadingVibe by remember { mutableStateOf<Vibe?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
@@ -199,6 +198,33 @@ fun QuickPicks(
                 modifier = Modifier.padding(endPaddingValues)
             )
 
+            BasicText(
+                text = stringResource(R.string.vibe_title),
+                style = typography.m.semiBold,
+                modifier = sectionTextModifier
+            )
+            VibeRow(
+                loading = loadingVibe,
+                contentPadding = endPaddingValues,
+                onClick = { vibe ->
+                    loadingVibe = vibe
+                    coroutineScope.launch {
+                        val result = try {
+                            catching { VibePlaylist.build(vibe) }.getOrNull()
+                        } finally {
+                            loadingVibe = null
+                        }
+                        if (result == null || result.songs.isEmpty()) {
+                            context.toast(context.getString(R.string.vibe_empty))
+                            return@launch
+                        }
+                        if (result.freshCount == 0) context.toast(context.getString(R.string.vibe_offline))
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(result.songs.map { it.toSong().asMediaItem })
+                    }
+                }
+            )
+
             if (dailyMixes.isNotEmpty()) {
                 BasicText(
                     text = stringResource(R.string.daily_mixes),
@@ -211,26 +237,6 @@ fun QuickPicks(
                     onClick = { mix ->
                         binder?.stopRadio()
                         binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
-                    }
-                )
-            }
-
-            if (situationCounts.values.any { it > 0 }) {
-                BasicText(
-                    text = stringResource(R.string.tag_section_situations),
-                    style = typography.m.semiBold,
-                    modifier = sectionTextModifier
-                )
-                SituationRow(
-                    counts = situationCounts,
-                    contentPadding = endPaddingValues,
-                    onClick = { situation ->
-                        coroutineScope.launch {
-                            val songs = Situations.songsFor(situation)
-                            if (songs.isEmpty()) return@launch
-                            binder?.stopRadio()
-                            binder?.player?.forcePlayFromBeginning(songs.shuffled().map { it.asMediaItem })
-                        }
                     }
                 )
             }

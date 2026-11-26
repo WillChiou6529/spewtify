@@ -123,6 +123,11 @@ fun BuiltInPlaylistSongs(
         selectedTag?.let { tag -> Database.songIdsWithTag(tag).map<List<String>, Set<String>> { it.toHashSet() } }
             ?: flowOf<Set<String>>(emptySet())
     }.collectAsState(initial = emptySet<String>())
+    // 選中的標籤沒有歌了（例如全部重新分類、取消收藏）→ 自動回到「全部」，不留一個空列表
+    LaunchedEffect(tagCounts, selectedTag) {
+        val tag = selectedTag ?: return@LaunchedEffect
+        if (tagCounts.isNotEmpty() && tagCounts.none { it.tag == tag }) selectedTag = null
+    }
     val shown = if (builtInPlaylist != BuiltInPlaylist.Favorites || selectedTag == null) songs
     else songs.filter { it.id in taggedIds }
 

@@ -835,6 +835,10 @@ interface DatabaseAccessor {
     @Query("DELETE FROM SongTagState")
     fun resetTagStates()
 
+    /** 填了 Last.fm key 後：還沒用 Last.fm 查過的歌重新排進分類。 */
+    @Query("DELETE FROM SongTagState WHERE sources NOT LIKE '%lastfm%'")
+    fun resetStatesWithoutLastFm()
+
     @Query("SELECT * FROM SongTag WHERE songId = :songId AND weight > 0 ORDER BY weight DESC")
     fun tagsOf(songId: String): Flow<List<SongTag>>
 
@@ -845,6 +849,7 @@ interface DatabaseAccessor {
         """
         SELECT COUNT(DISTINCT Song.id) FROM Song JOIN SongTag ON Song.id = SongTag.songId
         WHERE Song.likedAt IS NOT NULL AND SongTag.weight > 0
+        AND Song.id NOT LIKE '$LOCAL_KEY_PREFIX%' AND substr(SongTag.tag, 1, 4) != 'ctx_'
         """
     )
     fun likedTaggedCount(): Flow<Int>

@@ -28,6 +28,8 @@ object DataPreferences : GlobalPreferencesHolder() {
     var autoSyncPlaylists by boolean(true)
     var lastFmApiKey by string("")
     var tagRulesVersion by int(0)
+    /** 使用者按了「全部重新分類」、還沒重置完成（被中斷重試時不會再重置一次）。 */
+    var tagResetPending by boolean(false)
 
     enum class TopListPeriod(
         val displayName: @Composable () -> String,

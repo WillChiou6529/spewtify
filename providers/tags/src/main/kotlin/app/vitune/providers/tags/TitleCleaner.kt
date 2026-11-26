@@ -28,7 +28,8 @@ object TitleCleaner {
 
     /** 「歌手A, 歌手B & 歌手C」只取第一位，Last.fm 用主歌手查比較準。 */
     fun primaryArtist(artistsText: String?): String? = artistsText
-        ?.split(Regex("\\s*(,|&|、|×| x | X |feat\\.?|ft\\.?)\\s*"))
+        // feat／ft／x 前後一定要有空白，否則 "Taylor Swift" 會被切成 "Taylor Swi"
+        ?.split(Regex("\\s*(?:,|&|、|×)\\s*|\\s+(?:x|feat\\.?|ft\\.?|featuring)\\s+", RegexOption.IGNORE_CASE))
         ?.firstOrNull { it.isNotBlank() }
         ?.trim()
         ?.removeSuffix(" - Topic")

@@ -58,8 +58,12 @@ fun DatabaseSettings() = with(DataPreferences) {
         isTextInputValid = { true },
         onDismiss = { editingLastFmKey = false },
         onAccept = {
-            lastFmApiKey = it.trim()
-            SongTagWorker.runNow(context.applicationContext, force = false)
+            val newKey = it.trim()
+            val changed = newKey != lastFmApiKey
+            lastFmApiKey = newKey
+            // 換了新 key：之前沒問過 Last.fm 的歌要重查，否則只補分類
+            if (changed && newKey.isNotEmpty()) SongTagWorker.onLastFmKeySet(context.applicationContext)
+            else SongTagWorker.runNow(context.applicationContext, force = false)
         }
     )
 

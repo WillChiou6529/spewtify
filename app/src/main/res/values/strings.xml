@@ -387,6 +387,12 @@
     <string name="tag_section_situations">Situations</string>
     <string name="tag_section_genres">Genres</string>
     <string name="tag_section_moods">Moods</string>
+    <string name="vibe_title">What do you feel like?</string>
+    <string name="vibe_moods">Mood</string>
+    <string name="vibe_situations">Right now I\'m…</string>
+    <string name="vibe_generating">Mixing…</string>
+    <string name="vibe_empty">Couldn\'t find songs for this. Check your connection and try again.</string>
+    <string name="vibe_offline">Offline: playing only your liked songs</string>
     <string name="format_daily_mix">%1$s Mix</string>
     <string name="format_daily_mix_songs">%1$d songs</string>
     <string name="genre_tags">Genre &amp; mood tags</string>

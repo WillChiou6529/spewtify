@@ -11,6 +11,8 @@ import app.vitune.providers.innertube.requests.nextPage
 import app.vitune.providers.tags.Tag
 import app.vitune.providers.tags.TagKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -26,7 +28,9 @@ data class MixSong(
     val title: String,
     val artistsText: String? = null,
     val durationText: String? = null,
-    val thumbnailUrl: String? = null
+    val thumbnailUrl: String? = null,
+    /** true＝自己的收藏；取消收藏後當天的 Mix 也要拿掉 */
+    val own: Boolean = false
 ) {
     fun toSong() = Song(
         id = id,
@@ -64,20 +68,49 @@ object DailyMixes {
     private const val SEEDS_PER_MIX = 2
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** 背景 Worker 和首頁可能同時呼叫，一次只算一份。 */
+    private val mutex = Mutex()
+
+    /**
+     * 首頁用：今天已經算好（通常是背景分類完順便算的）就直接用，只把取消收藏／封鎖的歌拿掉；
+     * 還沒算才當場算。force＝分類結果變了，重算今天的。
+     */
     suspend fun load(context: Context, force: Boolean = false): List<DailyMix> = withContext(Dispatchers.IO) {
-        val today = LocalDate.now().toEpochDay()
-        val file = File(context.filesDir, FILE)
-        val cached = runCatching { json.decodeFromString(DailyMixCache.serializer(), file.readText()) }.getOrNull()
-        if (!force && cached != null && cached.day == today && cached.mixes.isNotEmpty()) return@withContext cached.mixes
+        mutex.withLock {
+            val today = LocalDate.now().toEpochDay()
+            val file = File(context.filesDir, FILE)
+            val cached = catching { json.decodeFromString(DailyMixCache.serializer(), file.readText()) }.getOrNull()
+            if (!force && cached != null && cached.day == today && cached.mixes.isNotEmpty())
+                return@withLock prune(cached.mixes)
 
-        val built = runCatching { build(context, today) }
-            .onFailure { Log.w(TAG, "產生 Daily Mix 失敗", it) }
-            .getOrNull()
-            .orEmpty()
-        if (built.isEmpty()) return@withContext cached?.mixes.orEmpty()
+            val built = catching { build(context, today) }
+                .onFailure { Log.w(TAG, "產生 Daily Mix 失敗", it) }
+                .getOrNull()
+                .orEmpty()
+            if (built.isEmpty()) return@withLock prune(cached?.mixes.orEmpty())
 
-        runCatching { file.writeText(json.encodeToString(DailyMixCache.serializer(), DailyMixCache(today, built))) }
-        built
+            catching {
+                val tmp = File(context.filesDir, "$FILE.tmp")
+                tmp.writeText(json.encodeToString(DailyMixCache.serializer(), DailyMixCache(today, built)))
+                if (!tmp.renameTo(file)) {
+                    file.delete()
+                    tmp.renameTo(file)
+                }
+            }.onFailure { Log.w(TAG, "Daily Mix 存檔失敗", it) }
+            built
+        }
+    }
+
+    /** 拿掉已取消收藏的自己的歌、被封鎖的歌；空掉的 Mix 不顯示。 */
+    private suspend fun prune(mixes: List<DailyMix>): List<DailyMix> {
+        if (mixes.isEmpty()) return mixes
+        val liked = Database.likedSongsNow().mapTo(HashSet()) { it.id }
+        val blocked = Database.blacklistedIds().toHashSet()
+        return mixes.mapNotNull { mix ->
+            val songs = mix.songs.filter { it.id !in blocked && (!it.own || it.id in liked) }
+            if (songs.isEmpty()) null
+            else mix.copy(songs = songs, ownCount = songs.count { it.own })
+        }
     }
 
     /** 曲風優先；曲風不到 2 個時用心情補。 */
@@ -94,20 +127,25 @@ object DailyMixes {
         val chosen = chooseTags(Database.favoriteTagCountsNow())
         if (chosen.isEmpty()) return emptyList()
         val index = YtTagIndex.load(context)
+        // 推薦不要出現已經收藏或封鎖的歌（不只該分類前 50 首）
+        val exclude = Database.likedSongsNow().mapTo(HashSet()) { it.id } + Database.blacklistedIds()
 
         return chosen.map { tagCount ->
             val random = Random(day * 31 + tagCount.tag.hashCode())
             val pool = Database.songsWithTag(tagCount.tag, OWN_POOL * 2)
             // 前 25 首最常聽的裡面，每天隨機挑 15 首
             val own = pool.take(OWN_POOL).shuffled(random).take(OWN_PER_MIX)
+            // 單一 Mix 的推薦失敗（網路逾時）只少推薦，不影響其他 Mix
             val recs = if (index == null) emptyList()
-            else recommend(
-                seeds = own.shuffled(random).take(SEEDS_PER_MIX),
-                tagId = tagCount.tag,
-                index = index,
-                exclude = pool.map { it.id }.toSet()
-            )
-            val ownSongs = own.map { MixSong(it.id, it.title, it.artistsText, it.durationText, it.thumbnailUrl) }
+            else catching {
+                recommend(
+                    seeds = own.shuffled(random).take(SEEDS_PER_MIX),
+                    tagId = tagCount.tag,
+                    index = index,
+                    exclude = exclude
+                )
+            }.onFailure { Log.w(TAG, "${tagCount.tag} 推薦失敗", it) }.getOrDefault(emptyList())
+            val ownSongs = own.map { MixSong(it.id, it.title, it.artistsText, it.durationText, it.thumbnailUrl, own = true) }
             DailyMix(
                 tag = tagCount.tag,
                 songs = interleave(ownSongs, recs),
@@ -142,14 +180,14 @@ object DailyMixes {
             )
         }
 
-    /** 自己的歌和推薦交錯排，大約每 3 首插 2 首推薦，不會整段都是新歌。 */
-    internal fun <T> interleave(own: List<T>, recs: List<T>): List<T> {
+    /** 自己的歌和推薦交錯排：預設每 3 首插 2 首推薦，不會整段都是新歌。 */
+    internal fun <T> interleave(own: List<T>, recs: List<T>, ownRun: Int = 3, recRun: Int = 2): List<T> {
         val result = ArrayList<T>(own.size + recs.size)
         var o = 0
         var r = 0
         while (o < own.size || r < recs.size) {
-            repeat(3) { if (o < own.size) result += own[o++] }
-            repeat(2) { if (r < recs.size) result += recs[r++] }
+            repeat(ownRun) { if (o < own.size) result += own[o++] }
+            repeat(recRun) { if (r < recs.size) result += recs[r++] }
         }
         return result
     }

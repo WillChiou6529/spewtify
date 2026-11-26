@@ -18,8 +18,11 @@ object TagNormalizer {
         Tag.entries.forEach { tag -> tag.aliases.forEach { putIfAbsent(key(it), tag) } }
     }
 
+    /** 泛稱：只有整個標籤就是它時才算（"piano"→古典），出現在組合裡讓位給具體曲風（"piano rock"→搖滾）。 */
+    private val generic = setOf("piano", "instrumental", "acoustic", "alternative", "orchestral")
+
     private val partial: List<Pair<Regex, Tag>> = exact.entries
-        .sortedByDescending { it.key.length }
+        .sortedWith(compareBy<Map.Entry<String, Tag>> { it.key in generic }.thenByDescending { it.key.length })
         .map { (alias, tag) ->
             val boundary = if (alias.any { it.code > 0x2E80 }) "" else "\\b"   // 中日韓文字沒有字詞邊界
             Regex(boundary + Regex.escape(alias) + boundary) to tag

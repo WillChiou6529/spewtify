@@ -11,9 +11,9 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
 import app.vitune.android.Database
 import app.vitune.android.DatabaseDependency
+import app.vitune.android.query
 import app.vitune.android.models.Song
 import app.vitune.android.models.SongTag
 import app.vitune.android.models.SongTagState
@@ -42,7 +42,7 @@ private const val TAG = "SongTagger"
  */
 object SongTagger {
     /** 分類規則改版就加 1：App 更新後第一次執行會清掉狀態、重抓索引、全部重新分類（手動標籤保留）。 */
-    private const val RULES_VERSION = 2
+    private const val RULES_VERSION = 3   // 3：歌手名切割修正（Taylor Swift 不再被切成 Swi）
     private const val BATCH = 50
     private const val MAX_PER_RUN = 500
     private const val ARTIST_MIN_HITS = 1
@@ -59,12 +59,17 @@ object SongTagger {
 
     internal data class Candidate(val tag: WeightedTag, val source: String)
 
-    suspend fun run(context: Context, force: Boolean): Outcome? = withContext(Dispatchers.IO) {
+    suspend fun run(context: Context): Outcome? = withContext(Dispatchers.IO) {
         val upgrade = DataPreferences.tagRulesVersion < RULES_VERSION
-        if (force || upgrade) Database.resetTagStates()
+        // 「全部重新分類」只重置一次：重置＋重抓索引成功就清旗標，之後被中斷重試會接著做，不會每次從頭來
+        val reset = upgrade || DataPreferences.tagResetPending
+        if (reset) Database.resetTagStates()
 
-        val index = YtTagIndex.load(context, forceRefresh = force || upgrade)
-        if (upgrade && index != null) DataPreferences.tagRulesVersion = RULES_VERSION
+        val index = YtTagIndex.load(context, forceRefresh = reset)
+        if (reset && index != null) {
+            DataPreferences.tagRulesVersion = RULES_VERSION
+            DataPreferences.tagResetPending = false
+        }
         val lastFmKey = DataPreferences.lastFmApiKey.trim()
         if (index == null && lastFmKey.isEmpty()) {
             Log.w(TAG, "沒有官方索引也沒有 Last.fm key，稍後重試")
@@ -82,11 +87,14 @@ object SongTagger {
             val batch = Database.likedSongsNeedingTags(since, untaggedSince, BATCH).filter { seen.add(it.id) }
             if (batch.isEmpty()) break
             batch.forEach { song ->
-                val candidates = tagsFor(song, index, lastFmKey)
                 processed++
-                if (candidates.isNotEmpty()) tagged++
-                // 沒有官方索引又查不到時不記狀態，下次索引恢復還會重試
-                if (index != null || candidates.isNotEmpty()) save(song, candidates)
+                // 單首出錯（例如剛好被刪掉、網路逾時）只跳過這首，不中斷整批
+                catching {
+                    val candidates = tagsFor(song, index, lastFmKey)
+                    if (candidates.isNotEmpty()) tagged++
+                    // 沒有官方索引又查不到時不記狀態，下次索引恢復還會重試
+                    if (index != null || candidates.isNotEmpty()) save(song, candidates)
+                }.onFailure { Log.w(TAG, "分類失敗，跳過：${song.title}", it) }
             }
         }
         Log.i(TAG, "分類 $processed 首，其中 $tagged 首有標籤")
@@ -150,7 +158,7 @@ object SongTagger {
      * 至少 3 首有分類、某分類得票 ≥ 3 且占 ≥ 30% 才採用；權重 0.3～0.7。
      */
     private suspend fun fromRadio(song: Song, index: YtTagIndex): List<Candidate> {
-        val neighbors = runCatching {
+        val neighbors = catching {
             Innertube.nextPage(NextBody(videoId = song.id))?.getOrNull()?.itemsPage?.items.orEmpty()
         }.getOrDefault(emptyList()).filter { it.info?.endpoint?.videoId != song.id }
 
@@ -198,14 +206,16 @@ object SongTagger {
 
 class SongTagWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val outcome = runCatching { SongTagger.run(applicationContext, inputData.getBoolean(KEY_FORCE, false)) }
+        val outcome = catching { SongTagger.run(applicationContext) }
             .onFailure { Log.e(TAG, "自動分類失敗", it) }
-            .getOrNull()
-        return if (outcome == null) Result.retry() else Result.success()
+            .getOrNull() ?: return Result.retry()
+        // 分類完順便把今天的 Daily Mix 算好，首頁打開就有，不用當場連網路
+        catching { DailyMixes.load(applicationContext, force = outcome.processed > 0) }
+            .onFailure { Log.w(TAG, "預先產生 Daily Mix 失敗", it) }
+        return Result.success()
     }
 
     companion object {
-        private const val KEY_FORCE = "force"
         private const val PERIODIC = "song_tag_periodic"
         private const val NOW = "song_tag_now"
 
@@ -226,16 +236,24 @@ class SongTagWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             )
         }.onFailure { Log.w(TAG, "排程失敗", it) }
 
-        /** 設定頁按鈕：force = true 會清掉狀態、重抓官方索引、全部重新分類（手動標籤保留）。 */
+        /**
+         * 設定頁按鈕。force = true：清掉狀態、重抓官方索引、全部重新分類（手動標籤保留），會取代正在跑的分類；
+         * force = false：只補分類，已經有分類在跑（包括「全部重新分類」）就不打斷它。
+         */
         fun runNow(context: Context, force: Boolean) = runCatching {
+            if (force) DataPreferences.tagResetPending = true
             WorkManager.getInstance(context).enqueueUniqueWork(
                 NOW,
-                ExistingWorkPolicy.REPLACE,
-                OneTimeWorkRequestBuilder<SongTagWorker>()
-                    .setConstraints(constraints)
-                    .setInputData(workDataOf(KEY_FORCE to force))
-                    .build()
+                if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<SongTagWorker>().setConstraints(constraints).build()
             )
         }.onFailure { Log.w(TAG, "啟動分類失敗", it) }
+
+        /** 剛填了 Last.fm key：還沒問過 Last.fm 的歌全部重查（缺曲風或心情的會用 Last.fm 補），再立刻跑。 */
+        fun onLastFmKeySet(context: Context) = query {
+            // 在資料庫執行緒跑（設定頁是在主執行緒呼叫），清完再排工作，避免 Worker 先跑到舊狀態
+            catching { Database.resetStatesWithoutLastFm() }.onFailure { Log.w(TAG, "重置 Last.fm 狀態失敗", it) }
+            runNow(context, force = false)
+        }
     }
 }
