@@ -913,6 +913,17 @@ interface DatabaseAccessor {
     @Query("SELECT * FROM SongTag WHERE songId = :songId")
     fun allTagsOfNow(songId: String): List<SongTag>
 
+    /** 首頁捷徑：最近聽過的歌（同一首只算一次，最新的在前）。 */
+    @Query(
+        """
+        SELECT Song.* FROM Song JOIN Event ON Song.id = Event.songId
+        WHERE NOT Song.blacklisted
+        GROUP BY Song.id ORDER BY MAX(Event.timestamp) DESC LIMIT :limit
+        """
+    )
+    @RewriteQueriesToDropUnusedColumns
+    fun recentSongs(limit: Int): Flow<List<Song>>
+
     /** 手動編輯：覆蓋同一個 (songId, tag) 的自動標籤。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertTags(tags: List<SongTag>)

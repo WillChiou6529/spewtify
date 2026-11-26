@@ -90,7 +90,11 @@ fun HomeScreen() {
                                     p3 = it.channel?.name == "YouTube Music"
                                 )
                             },
-                            onSearchClick = onSearchClick
+                            onSearchClick = onSearchClick,
+                            onFavoritesClick = {
+                                builtInPlaylistRoute(app.vitune.core.data.enums.BuiltInPlaylist.Favorites)
+                            },
+                            onLocalPlaylistClick = { localPlaylistRoute(it) }
                         )
 
                         1 -> HomeDiscovery(

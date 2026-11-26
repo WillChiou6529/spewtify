@@ -38,6 +38,9 @@ import app.vitune.android.tagging.Vibe
 import app.vitune.android.tagging.VibePlaylist
 import app.vitune.android.tagging.catching
 import app.vitune.android.ui.components.themed.VibeRow
+import app.vitune.android.ui.components.themed.Shortcut
+import app.vitune.android.ui.components.themed.ShortcutGrid
+import app.vitune.android.tagging.tagDisplayName
 import app.vitune.android.utils.toast
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
@@ -97,7 +100,9 @@ fun QuickPicks(
     onAlbumClick: (Innertube.AlbumItem) -> Unit,
     onArtistClick: (Innertube.ArtistItem) -> Unit,
     onPlaylistClick: (Innertube.PlaylistItem) -> Unit,
-    onSearchClick: () -> Unit
+    onSearchClick: () -> Unit,
+    onFavoritesClick: () -> Unit = {},
+    onLocalPlaylistClick: (Long) -> Unit = {}
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
@@ -112,6 +117,64 @@ fun QuickPicks(
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
     val dailyMixes by produceState(initialValue = emptyList<DailyMix>()) {
         value = DailyMixes.load(context.applicationContext)
+    }
+
+    // Spewtify：Spotify 式首頁捷徑（收藏、Daily Mix、自己的播放清單、最近聽過的歌）
+    val localPlaylists by remember { Database.playlistPreviewsByDateAddedDesc().distinctUntilChanged() }
+        .collectAsState(initial = emptyList())
+    val recentSongs by remember { Database.recentSongs(8).distinctUntilChanged() }
+        .collectAsState(initial = emptyList())
+    val favoritesTitle = stringResource(R.string.favorites)
+    val mixFormat = stringResource(R.string.format_daily_mix)
+    val shortcuts = buildList {
+        add(
+            Shortcut(
+                key = "favorites", title = favoritesTitle, thumbnailUrl = null,
+                icon = R.drawable.heart, gradient = 0xFF4527A0 to 0xFF8FA6E8, onClick = onFavoritesClick
+            )
+        )
+        dailyMixes.take(2).forEach { mix ->
+            add(
+                Shortcut(
+                    key = "mix:${mix.tag}",
+                    title = mixFormat.format(tagDisplayName(mix.tag)),
+                    thumbnailUrl = mix.songs.firstOrNull()?.thumbnailUrl,
+                    icon = R.drawable.sparkles,
+                    onClick = {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
+                    }
+                )
+            )
+        }
+        localPlaylists.take(2).forEach { playlist ->
+            add(
+                Shortcut(
+                    key = "playlist:${playlist.id}",
+                    title = playlist.name,
+                    thumbnailUrl = playlist.thumbnail,
+                    icon = R.drawable.playlist,
+                    onClick = { onLocalPlaylistClick(playlist.id) }
+                )
+            )
+        }
+        recentSongs.forEach { song ->
+            if (size >= 8) return@forEach
+            add(
+                Shortcut(
+                    key = "song:${song.id}",
+                    title = song.title,
+                    thumbnailUrl = song.thumbnailUrl,
+                    icon = R.drawable.musical_notes,
+                    onClick = {
+                        val mediaItem = song.asMediaItem
+                        binder?.stopRadio()
+                        binder?.player?.forcePlay(mediaItem)
+                        binder?.setupRadio(NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId))
+                    }
+                )
+            )
+        }
     }
 
     var trending by persist<Song?>("home/trending")
@@ -194,9 +257,17 @@ fun QuickPicks(
                 )
         ) {
             Header(
-                title = stringResource(R.string.quick_picks),
+                title = stringResource(
+                    when (java.time.LocalTime.now().hour) {
+                        in 5..10 -> R.string.greeting_morning
+                        in 11..17 -> R.string.greeting_afternoon
+                        else -> R.string.greeting_evening
+                    }
+                ),
                 modifier = Modifier.padding(endPaddingValues)
             )
+
+            ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
 
             BasicText(
                 text = stringResource(R.string.vibe_title),
@@ -242,6 +313,11 @@ fun QuickPicks(
             }
 
             relatedPageResult?.getOrNull()?.let { related ->
+                BasicText(
+                    text = stringResource(R.string.home_recommended_songs),
+                    style = typography.m.semiBold,
+                    modifier = sectionTextModifier
+                )
                 LazyHorizontalGrid(
                     state = quickPicksLazyGridState,
                     rows = GridCells.Fixed(4),
