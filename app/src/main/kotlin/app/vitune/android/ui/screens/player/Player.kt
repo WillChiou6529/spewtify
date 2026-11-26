@@ -57,6 +57,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
@@ -278,7 +282,21 @@ fun Player(
                     )
                 }
 
-                Column(
+                // Spotify 卡片：一行「歌名 • 歌手」
+                if (spotifyCard) BasicText(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = colorPalette.text, fontWeight = FontWeight.SemiBold)) {
+                            append(metadata?.title?.toString().orEmpty())
+                        }
+                        metadata?.artist?.toString()?.takeIf { it.isNotBlank() }?.let {
+                            withStyle(SpanStyle(color = colorPalette.textSecondary)) { append(" • $it") }
+                        }
+                    },
+                    style = typography.xs,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                ) else Column(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .height(Dimensions.items.collapsedPlayerHeight)
@@ -333,7 +351,17 @@ fun Player(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.height(Dimensions.items.collapsedPlayerHeight)
                 ) {
-                    AnimatedVisibility(visible = isShowingPrevButtonCollapsed) {
+                    // Spotify 卡片：⊕（加入收藏）＋播放鍵，沒有上一首／下一首
+                    if (spotifyCard) IconButton(
+                        icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                        color = if (likedAt == null) colorPalette.text else Color(0xFF1ED760),
+                        onClick = { likedAt = if (likedAt == null) System.currentTimeMillis() else null },
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp, vertical = 8.dp)
+                            .size(22.dp)
+                    )
+
+                    AnimatedVisibility(visible = isShowingPrevButtonCollapsed && !spotifyCard) {
                         IconButton(
                             icon = R.drawable.play_skip_back,
                             color = colorPalette.text,
@@ -368,7 +396,7 @@ fun Player(
                         )
                     }
 
-                    IconButton(
+                    if (!spotifyCard) IconButton(
                         icon = R.drawable.play_skip_forward,
                         color = colorPalette.text,
                         onClick = { binder?.player?.forceSeekToNext() },
