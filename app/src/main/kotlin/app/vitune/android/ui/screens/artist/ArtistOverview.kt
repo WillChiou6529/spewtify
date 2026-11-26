@@ -39,6 +39,14 @@ import app.vitune.android.ui.items.AlbumItemPlaceholder
 import app.vitune.android.ui.items.SongItem
 import app.vitune.android.ui.items.SongItemPlaceholder
 import app.vitune.android.utils.asMediaItem
+import app.vitune.android.utils.forcePlayFromBeginning
+import app.vitune.android.utils.thumbnail
+import app.vitune.android.ui.components.themed.SpotifyPlayRow
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import app.vitune.android.utils.forcePlay
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.playingSong
@@ -90,6 +98,31 @@ fun ArtistOverview(
                         .asPaddingValues()
                 )
         ) {
+            // Spewtify：Spotify 藝人頁——滿版大頭照（下緣漸暗）→ 名字與操作 → 隨機＋綠色播放鍵
+            val heroUrl = youtubeArtistPage?.thumbnail?.url
+            if (heroUrl != null && !isLandscape) Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(300.dp)
+            ) {
+                AsyncImage(
+                    model = heroUrl.thumbnail(720),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.5f to Color.Transparent,
+                                1f to colorPalette.background0
+                            )
+                        )
+                )
+            }
+
             Box(modifier = Modifier.padding(endPaddingValues)) {
                 headerContent {
                     youtubeArtistPage?.shuffleEndpoint?.let { endpoint ->
@@ -110,7 +143,25 @@ fun ArtistOverview(
                 }
             }
 
-            if (!isLandscape) thumbnailContent()
+            // 沒有線上大頭照（本機藝人）才用原本的圓形縮圖
+            if (heroUrl == null && !isLandscape) thumbnailContent()
+
+            SpotifyPlayRow(
+                enabled = youtubeArtistPage != null,
+                onShuffle = {
+                    youtubeArtistPage?.shuffleEndpoint?.let { endpoint ->
+                        binder?.stopRadio()
+                        binder?.playRadio(endpoint)
+                    }
+                },
+                onPlay = {
+                    // 播熱門歌曲；沒有就開藝人電台
+                    val top = youtubeArtistPage?.songs.orEmpty()
+                    binder?.stopRadio()
+                    if (top.isNotEmpty()) binder?.player?.forcePlayFromBeginning(top.map { it.asMediaItem })
+                    else youtubeArtistPage?.radioEndpoint?.let { binder?.playRadio(it) }
+                }
+            )
 
             youtubeArtistPage?.let { artist ->
                 artist.songs?.let { songs ->
@@ -264,16 +315,8 @@ fun ArtistOverview(
             } ?: ArtistOverviewBodyPlaceholder()
         }
 
-        youtubeArtistPage?.radioEndpoint?.let { endpoint ->
-            FloatingActionsContainerWithScrollToTop(
-                scrollState = scrollState,
-                icon = R.drawable.radio,
-                onClick = {
-                    binder?.stopRadio()
-                    binder?.playRadio(endpoint)
-                }
-            )
-        }
+        // Spotify 沒有浮動按鈕：電台改由綠色播放鍵（沒有熱門歌曲時）開，這裡只保留回到頂端
+        FloatingActionsContainerWithScrollToTop(scrollState = scrollState)
     }
 }
 
