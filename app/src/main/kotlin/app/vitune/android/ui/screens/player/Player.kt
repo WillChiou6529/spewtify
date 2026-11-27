@@ -12,6 +12,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.media3.common.C
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -432,9 +436,13 @@ fun Player(
 
         if (isShowingLyricsDialog) LyricsDialog(onDismiss = { isShowingLyricsDialog = false })
 
+        // Spewtify：Spotify 版面沒有底部的待播清單橫條，改由控制鍵下面的 ☰ 鈕拉出待播清單
+        val spotifyPortrait = playerLayout == PlayerPreferences.PlayerLayout.Spotify && !isLandscape
         val playerBottomSheetState = rememberBottomSheetState(
-            dismissedBound = 64.dp + horizontalBottomPaddingValues.calculateBottomPadding(),
-            expandedBound = layoutState.expandedBound
+            dismissedBound = if (spotifyPortrait) 0.dp
+            else 64.dp + horizontalBottomPaddingValues.calculateBottomPadding(),
+            expandedBound = layoutState.expandedBound,
+            key = spotifyPortrait
         )
 
         // Spewtify：有官方 MV 就在背景滿版播（靜音循環），沒有就維持封面；背景用封面主色的漸層（像 Spotify）
@@ -480,7 +488,55 @@ fun Player(
                     .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     .asPaddingValues()
             )
-            .padding(bottom = playerBottomSheetState.collapsedBound)
+            .padding(
+                bottom = if (spotifyPortrait) horizontalBottomPaddingValues.calculateBottomPadding()
+                else playerBottomSheetState.collapsedBound
+            )
+
+        // Spotify 頂列：⌄ 收起／中間「正在播放」＋來源（專輯或歌手）／⋮ 選單
+        val playerTopBar: @Composable () -> Unit = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .padding(horizontal = 12.dp)
+            ) {
+                IconButton(
+                    icon = R.drawable.chevron_down,
+                    color = colorPalette.text,
+                    onClick = { layoutState.collapseSoft() },
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(22.dp)
+                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    val album = metadata?.albumTitle?.toString()?.takeIf { it.isNotBlank() }
+                    BasicText(
+                        text = stringResource(if (album != null) R.string.player_playing_from_album else R.string.player_now_playing),
+                        style = typography.xxs.copy(color = colorPalette.text),
+                        maxLines = 1
+                    )
+                    BasicText(
+                        text = album ?: metadata?.artist?.toString().orEmpty(),
+                        style = typography.xs.semiBold.copy(color = colorPalette.text),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(
+                    icon = R.drawable.ellipsis_vertical,
+                    color = colorPalette.text,
+                    onClick = openPlayerMenu,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .size(22.dp)
+                )
+            }
+        }
 
         val thumbnailContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             Pip(
@@ -550,52 +606,67 @@ fun Player(
                     .fillMaxHeight()
                     .weight(1f)
             )
+        } else if (spotifyPortrait) BoxWithConstraints(modifier = containerModifier) {
+            // Spotify：第一屏是封面＋控制鍵，往下滑才是歌詞預覽卡；在最上面往下拉就縮回迷你播放列
+            val pageHeight = maxHeight
+            val scrollState = rememberScrollState()
+            LaunchedEffect(layoutState.expanded) {
+                if (!layoutState.expanded) scrollState.scrollTo(0)
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(layoutState.preUpPostDownNestedScrollConnection)
+                    .verticalScroll(scrollState)
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(pageHeight)
+                        .padding(top = 4.dp)
+                ) {
+                    playerTopBar()
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.weight(1.25f)
+                    ) {
+                        thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                    }
+
+                    controlsContent(
+                        Modifier
+                            .padding(top = 8.dp)
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+
+                    PlayerActionRow(
+                        mediaItem = mediaItem,
+                        onQueueClick = { playerBottomSheetState.expandSoft() },
+                        modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
+                    )
+                }
+
+                mediaItem?.let { item ->
+                    LyricsPreviewCard(
+                        mediaItem = item,
+                        position = position,
+                        durationProvider = { binder?.player?.duration ?: C.TIME_UNSET },
+                        onOpen = { isShowingLyricsDialog = true }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         } else Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = containerModifier.padding(top = 4.dp)
         ) {
-            // Spotify 頂列：⌄ 收起／中間「正在播放」＋來源（專輯或歌手）／⋮ 選單
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .padding(horizontal = 12.dp)
-            ) {
-                IconButton(
-                    icon = R.drawable.chevron_down,
-                    color = colorPalette.text,
-                    onClick = { layoutState.collapseSoft() },
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(22.dp)
-                )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    val album = metadata?.albumTitle?.toString()?.takeIf { it.isNotBlank() }
-                    BasicText(
-                        text = stringResource(if (album != null) R.string.player_playing_from_album else R.string.player_now_playing),
-                        style = typography.xxs.copy(color = colorPalette.text),
-                        maxLines = 1
-                    )
-                    BasicText(
-                        text = album ?: metadata?.artist?.toString().orEmpty(),
-                        style = typography.xs.semiBold.copy(color = colorPalette.text),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                IconButton(
-                    icon = R.drawable.ellipsis_vertical,
-                    color = colorPalette.text,
-                    onClick = openPlayerMenu,
-                    modifier = Modifier
-                        .padding(8.dp)
-                        .size(22.dp)
-                )
-            }
+            playerTopBar()
 
             Box(
                 contentAlignment = Alignment.Center,

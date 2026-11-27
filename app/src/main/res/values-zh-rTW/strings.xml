@@ -410,6 +410,8 @@
     <string name="radio_label">電台</string>
     <string name="format_radio_subtitle">%1$s 和相似藝人</string>
     <string name="player_now_playing">正在播放</string>
+    <string name="lyrics_preview">歌詞預覽</string>
+    <string name="lyrics_show_more">顯示歌詞</string>
     <string name="player_playing_from_album">播放自專輯</string>
     <string name="popular_artists">熱門藝人</string>
     <string name="discover_new_music">發掘新音樂</string>

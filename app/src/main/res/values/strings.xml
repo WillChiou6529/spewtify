@@ -412,6 +412,8 @@
     <string name="radio_label">RADIO</string>
     <string name="format_radio_subtitle">%1$s and similar artists</string>
     <string name="player_now_playing">Now playing</string>
+    <string name="lyrics_preview">Lyrics preview</string>
+    <string name="lyrics_show_more">Show lyrics</string>
     <string name="player_playing_from_album">Playing from album</string>
     <string name="popular_artists">Popular artists</string>
     <string name="discover_new_music">Discover new music</string>

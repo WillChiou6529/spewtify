@@ -113,6 +113,59 @@ import kotlin.time.Duration.Companion.seconds
 
 private const val UPDATE_DELAY = 50L
 
+/**
+ * Spewtify：抓歌詞（YouTube → LrcLib → KuGou），只補 [current] 缺的那一種。
+ * 歌詞頁和播放畫面的「歌詞預覽」卡共用；呼叫端負責存進資料庫。
+ */
+internal suspend fun fetchLyrics(
+    mediaId: String,
+    current: Lyrics?,
+    mediaMetadata: MediaMetadata,
+    durationMs: Long
+): Lyrics {
+    val album = mediaMetadata.albumTitle?.toString()
+    val artist = mediaMetadata.artist?.toString().orEmpty()
+    val title = mediaMetadata.title?.toString().orEmpty().let {
+        if (mediaId.startsWith(LOCAL_KEY_PREFIX)) it
+            .substringBeforeLast('.')
+            .trim()
+        else it
+    }
+
+    val fixed = current?.fixed ?: Innertube
+        .lyrics(NextBody(videoId = mediaId))
+        ?.getOrNull()
+        ?: LrcLib.bestLyrics(
+            artist = artist,
+            title = title,
+            duration = durationMs.milliseconds,
+            album = album,
+            synced = false
+        )?.map { it?.text }?.getOrNull()
+
+    val synced = current?.synced ?: LrcLib.bestLyrics(
+        artist = artist,
+        title = title,
+        duration = durationMs.milliseconds,
+        album = album
+    )?.map { it?.text }?.getOrNull() ?: LrcLib.bestLyrics(
+        artist = artist,
+        title = title.split("(")[0].trim(),
+        duration = durationMs.milliseconds,
+        album = album
+    )?.map { it?.text }?.getOrNull() ?: KuGou.lyrics(
+        artist = artist,
+        title = title,
+        duration = durationMs / 1000
+    )?.map { it?.value }?.getOrNull()
+
+    return Lyrics(
+        songId = mediaId,
+        fixed = fixed.orEmpty(),
+        synced = synced.orEmpty()
+    )
+}
+
 @Composable
 fun Lyrics(
     mediaId: String,
@@ -195,49 +248,14 @@ fun Lyrics(
                                     withContext(Dispatchers.Main) { currentDurationProvider() }
                             }
 
-                            val album = mediaMetadata.albumTitle?.toString()
-                            val artist = mediaMetadata.artist?.toString().orEmpty()
-                            val title = mediaMetadata.title?.toString().orEmpty().let {
-                                if (mediaId.startsWith(LOCAL_KEY_PREFIX)) it
-                                    .substringBeforeLast('.')
-                                    .trim()
-                                else it
-                            }
-
                             lyrics = null
                             error = false
 
-                            val fixed = currentLyrics?.fixed ?: Innertube
-                                .lyrics(NextBody(videoId = mediaId))
-                                ?.getOrNull()
-                                ?: LrcLib.bestLyrics(
-                                    artist = artist,
-                                    title = title,
-                                    duration = duration.milliseconds,
-                                    album = album,
-                                    synced = false
-                                )?.map { it?.text }?.getOrNull()
-
-                            val synced = currentLyrics?.synced ?: LrcLib.bestLyrics(
-                                artist = artist,
-                                title = title,
-                                duration = duration.milliseconds,
-                                album = album
-                            )?.map { it?.text }?.getOrNull() ?: LrcLib.bestLyrics(
-                                artist = artist,
-                                title = title.split("(")[0].trim(),
-                                duration = duration.milliseconds,
-                                album = album
-                            )?.map { it?.text }?.getOrNull() ?: KuGou.lyrics(
-                                artist = artist,
-                                title = title,
-                                duration = duration / 1000
-                            )?.map { it?.value }?.getOrNull()
-
-                            Lyrics(
-                                songId = mediaId,
-                                fixed = fixed.orEmpty(),
-                                synced = synced.orEmpty()
+                            fetchLyrics(
+                                mediaId = mediaId,
+                                current = currentLyrics,
+                                mediaMetadata = mediaMetadata,
+                                durationMs = duration
                             ).also {
                                 this@withContext.ensureActive()
 
