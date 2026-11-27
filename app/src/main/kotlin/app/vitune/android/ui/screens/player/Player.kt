@@ -654,7 +654,7 @@ fun Player(
                 mediaItem?.let { item ->
                     LyricsPreviewCard(
                         mediaItem = item,
-                        position = position,
+                        positionProvider = { binder?.player?.currentPosition ?: 0L },
                         durationProvider = { binder?.player?.duration ?: C.TIME_UNSET },
                         onOpen = { isShowingLyricsDialog = true }
                     )

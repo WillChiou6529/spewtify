@@ -143,10 +143,10 @@ fun QuickPicks(
 
     // Spewtify：排行榜（台灣、全球、日韓美）與台灣熱門藝人，記憶體快取 1 小時
     val chartCards by produceState(initialValue = Charts.lastHomeCards, retryKey) {
-        catching { Charts.homeCards() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { value = it }
+        catching { Charts.homeCards(force = retryKey > 0) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { value = it }
     }
     val chartArtists by produceState(initialValue = Charts.peek(ChartRegion.TW)?.artists.orEmpty().take(20), retryKey) {
-        catching { Charts.page(ChartRegion.TW)?.artists.orEmpty().take(20) }.getOrNull()
+        catching { Charts.page(ChartRegion.TW, force = retryKey > 0)?.artists.orEmpty().take(20) }.getOrNull()
             ?.takeIf { it.isNotEmpty() }?.let { value = it }
     }
 

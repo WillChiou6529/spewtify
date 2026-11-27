@@ -88,7 +88,7 @@ fun HomeSearch(
         chartsRetry
     ) {
         value = Charts.peek(region)?.let { Result.success(it) }
-        value = catching { Charts.page(region) }.getOrNull()?.let { Result.success(it) }
+        value = catching { Charts.page(region, force = chartsRetry > 0) }.getOrNull()?.let { Result.success(it) }
             ?: Result.failure(IllegalStateException("charts ${region.code}"))
     }
 

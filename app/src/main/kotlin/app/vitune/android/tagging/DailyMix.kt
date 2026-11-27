@@ -12,6 +12,11 @@ import app.vitune.providers.innertube.requests.nextPage
 import app.vitune.providers.tags.Tag
 import app.vitune.providers.tags.TagKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -149,7 +154,17 @@ object DailyMixes {
         // 推薦不要出現已經收藏或封鎖的歌（不只該分類前 50 首）
         val exclude = Database.likedSongsNow().mapTo(HashSet()) { it.id } + Database.blacklistedIds()
 
-        return chosen.map { tagCount ->
+        // 每個 Mix 的推薦平行抓（同時最多 3 個），不要 6 個 Mix 排隊一個一個等
+        val parallel = Semaphore(3)
+        return coroutineScope {
+            chosen.map { tagCount -> async { parallel.withPermit { buildOne(tagCount, day, index, exclude) } } }
+                .awaitAll()
+                .filterNotNull()
+        }
+    }
+
+    private suspend fun buildOne(tagCount: TagCount, day: Long, index: YtTagIndex?, exclude: Set<String>): DailyMix? {
+        return run {
             val random = Random(day * 31 + tagCount.tag.hashCode())
             val pool = Database.songsWithTag(tagCount.tag, OWN_POOL * 2)
             // 前 25 首最常聽的裡面，每天隨機挑 15 首
@@ -171,7 +186,7 @@ object DailyMixes {
                 ownCount = ownSongs.size,
                 matched = ownSongs.size + recs.size
             ).also { Log.i(TAG, "${it.tag}：自己 ${it.ownCount} 首＋推薦 ${recs.size} 首") }
-        }.filter { it.songs.isNotEmpty() }
+        }.takeIf { it.songs.isNotEmpty() }
     }
 
     private suspend fun recommend(

@@ -15,7 +15,7 @@ import kotlinx.serialization.json.contentOrNull
 /** YouTube Music 搜尋「影片」分頁的 params（2026-11-26 實測可用） */
 private const val VIDEOS_PARAMS = "EgWKAQIQAWoQEAMQBBAJEAoQBRAREBAQFQ%3D%3D"
 
-private data class VideoHit(val videoId: String, val title: String, val type: String?)
+private data class VideoHit(val videoId: String, val title: String, val type: String?, val subtitle: String)
 
 /**
  * 找一首歌的官方 MV（Spewtify 播放畫面背景用）：用「歌手 歌名」搜影片，取第一個官方 MV（MUSIC_VIDEO_TYPE_OMV）
@@ -31,12 +31,20 @@ suspend fun Innertube.officialMusicVideo(title: String, artist: String?, videoId
 
     val want = normalize(title)
     val songIsLive = "live" in title.lowercase() || "現場" in title
+    // 歌手也要對得上（同名歌很多：翻唱、不同歌手的同名曲）；看影片標題或副標（「影片 • 歌手 • 觀看次數」）
+    val wantArtist = artist
+        ?.split(",", "&", "、", " x ", " X ", " feat", " ft.")
+        ?.firstOrNull()
+        ?.let(::normalize)
+        .orEmpty()
     hits.firstOrNull { it.videoId == videoId && it.type == "MUSIC_VIDEO_TYPE_OMV" }?.videoId
         ?: hits.firstOrNull { hit ->
             val got = normalize(hit.title)
             val isLive = "live" in hit.title.lowercase() || "現場" in hit.title
+            val artistOk = wantArtist.isEmpty() || wantArtist in normalize(hit.subtitle) || wantArtist in got
             hit.type == "MUSIC_VIDEO_TYPE_OMV" &&
                 want.isNotEmpty() && (want in got || got in want) &&
+                artistOk &&
                 (songIsLive || !isLive)
         }?.videoId
 }
@@ -51,7 +59,12 @@ private fun collectHits(element: JsonElement, out: MutableList<VideoHit>) {
             val renderer = element["musicResponsiveListItemRenderer"] as? JsonObject
             if (renderer != null) {
                 val id = ((renderer["playlistItemData"] as? JsonObject)?.get("videoId") as? JsonPrimitive)?.contentOrNull
-                if (id != null) out += VideoHit(id, firstColumnText(renderer), findString(renderer, "musicVideoType"))
+                if (id != null) out += VideoHit(
+                    videoId = id,
+                    title = columnText(renderer, 0),
+                    type = findString(renderer, "musicVideoType"),
+                    subtitle = columnText(renderer, 1)
+                )
                 return
             }
             element.values.forEach { collectHits(it, out) }
@@ -61,8 +74,8 @@ private fun collectHits(element: JsonElement, out: MutableList<VideoHit>) {
     }
 }
 
-private fun firstColumnText(renderer: JsonObject): String {
-    val column = (renderer["flexColumns"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return ""
+private fun columnText(renderer: JsonObject, index: Int): String {
+    val column = (renderer["flexColumns"] as? JsonArray)?.getOrNull(index) as? JsonObject ?: return ""
     val runs = (((column["musicResponsiveListItemFlexColumnRenderer"] as? JsonObject)
         ?.get("text") as? JsonObject)?.get("runs") as? JsonArray) ?: return ""
     return runs.joinToString("") { ((it as? JsonObject)?.get("text") as? JsonPrimitive)?.contentOrNull.orEmpty() }

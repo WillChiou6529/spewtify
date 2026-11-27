@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -154,7 +155,7 @@ private const val PREVIEW_LINES = 7
 @Composable
 fun LyricsPreviewCard(
     mediaItem: MediaItem,
-    position: Long,
+    positionProvider: () -> Long,
     durationProvider: () -> Long,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier
@@ -226,10 +227,16 @@ fun LyricsPreviewCard(
     if (synced == null && fixed == null) return
 
     val startTime = lyrics?.startTime ?: 0L
-    val currentIndex = synced?.let { lines ->
-        val pos = position - startTime
-        lines.indexOfLast { it.first <= pos }
-    } ?: -1
+    // 自己每 0.25 秒看一次進度，只有換到下一句才重畫（不跟著整個播放畫面每次進度更新都重組）
+    val currentPositionProvider by rememberUpdatedState(positionProvider)
+    val currentIndex by produceState(initialValue = -1, synced, startTime) {
+        val lines = synced ?: return@produceState
+        while (true) {
+            val pos = currentPositionProvider() - startTime
+            value = lines.indexOfLast { it.first <= pos }
+            delay(250)
+        }
+    }
 
     val (lines, firstIndex) = if (synced != null) {
         val from = (currentIndex - 1).coerceIn(0, (synced.size - PREVIEW_LINES).coerceAtLeast(0))

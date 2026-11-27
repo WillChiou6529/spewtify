@@ -4,7 +4,10 @@ import android.util.Log
 import app.vitune.providers.innertube.Innertube
 import app.vitune.providers.innertube.requests.ChartsPage
 import app.vitune.providers.innertube.requests.charts
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -51,21 +54,46 @@ object Charts {
     /** 不連網路，只看記憶體裡有沒有（過期也回傳）。 */
     fun peek(region: ChartRegion): ChartsPage? = cache[region]?.second
 
-    /** 某地區的排行榜（記憶體快取 1 小時）；失敗回 null。 */
-    suspend fun page(region: ChartRegion): ChartsPage? = withContext(Dispatchers.IO) {
-        mutex.withLock { cache[region] }
-            ?.takeIf { System.currentTimeMillis() - it.first < TTL.inWholeMilliseconds }
-            ?.let { return@withContext it.second }
+    /** 進行中的請求：首頁和搜尋頁同時要同一個地區時共用一個，不重複打 */
+    private val inflight = HashMap<ChartRegion, Deferred<ChartsPage?>>()
+    /** 失敗時間：失敗後 30 秒內不再重打（沒網路時每次進首頁都打 5 個請求沒意義） */
+    private val failedAt = java.util.concurrent.ConcurrentHashMap<ChartRegion, Long>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-        val page = Innertube.charts(region.code)?.onFailure { Log.w(TAG, "排行榜 ${region.code} 失敗", it) }?.getOrNull()
-            ?: return@withContext mutex.withLock { cache[region]?.second }
-        mutex.withLock { cache[region] = System.currentTimeMillis() to page }
-        page
+    /** 某地區的排行榜（記憶體快取 1 小時）；失敗回舊資料或 null。force＝使用者按了重試，不管失敗冷卻。 */
+    suspend fun page(region: ChartRegion, force: Boolean = false): ChartsPage? = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        cache[region]?.takeIf { now - it.first < TTL.inWholeMilliseconds }?.let { return@withContext it.second }
+        if (!force && now - (failedAt[region] ?: 0L) < RETRY_AFTER_FAILURE_MS) return@withContext cache[region]?.second
+
+        val request = mutex.withLock {
+            inflight[region] ?: scope.async { fetch(region) }.also { inflight[region] = it }
+        }
+        try {
+            request.await()
+        } finally {
+            mutex.withLock { if (inflight[region] === request) inflight.remove(region) }
+        }
     }
 
+    private suspend fun fetch(region: ChartRegion): ChartsPage? {
+        val page = Innertube.charts(region.code)
+            ?.onFailure { Log.w(TAG, "排行榜 ${region.code} 失敗", it) }
+            ?.getOrNull()
+        if (page == null) {
+            failedAt[region] = System.currentTimeMillis()
+            return cache[region]?.second
+        }
+        failedAt.remove(region)
+        cache[region] = System.currentTimeMillis() to page
+        return page
+    }
+
+    private const val RETRY_AFTER_FAILURE_MS = 30_000L
+
     /** 首頁「排行榜」：台灣、全球全部榜單＋南韓、日本、美國的百大熱門。 */
-    suspend fun homeCards(): List<ChartCard> = coroutineScope {
-        ChartRegion.entries.map { region -> async { region to page(region) } }.awaitAll()
+    suspend fun homeCards(force: Boolean = false): List<ChartCard> = coroutineScope {
+        ChartRegion.entries.map { region -> async { region to page(region, force) } }.awaitAll()
             .flatMap { (region, page) ->
                 val lists = page?.playlists.orEmpty()
                 val picked = when (region) {

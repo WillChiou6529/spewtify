@@ -17,6 +17,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.random.Random
 
@@ -60,6 +61,7 @@ data class VibeResult(val songs: List<MixSong>, val ownCount: Int, val freshCoun
 
 object VibePlaylist {
     private const val TOTAL = 50
+    private const val FRESH_TIMEOUT_MS = 8_000L
 
     /** 首頁篩選用：收藏裡符合這個心情／情境的歌（依原本順序，最多 limit 首）。 */
     suspend fun ownSongs(vibe: Vibe, limit: Int = 30): List<Song> = withContext(Dispatchers.IO) {
@@ -83,9 +85,12 @@ object VibePlaylist {
             else -> emptyList()
         }.filter { it.id !in blocked }
 
-        val fresh = catching {
-            OfficialPlaylists.songs(vibe.official, exclude = liked + blocked, limit = total, random = random)
-        }.onFailure { Log.w(TAG, "抓官方歌單失敗：${vibe.id}", it) }.getOrDefault(emptyList())
+        // 最多等 8 秒：網路很慢時先用收藏的歌播，不要讓使用者一直等
+        val fresh = withTimeoutOrNull(FRESH_TIMEOUT_MS) {
+            catching {
+                OfficialPlaylists.songs(vibe.official, exclude = liked + blocked, limit = total, random = random)
+            }.onFailure { Log.w(TAG, "抓官方歌單失敗：${vibe.id}", it) }.getOrDefault(emptyList())
+        } ?: emptyList<MixSong>().also { Log.w(TAG, "抓官方歌單逾時：${vibe.id}") }
 
         val ownTarget = (total + 2) / 3
         val ownCount = minOf(ownAll.size, maxOf(ownTarget, total - fresh.size))

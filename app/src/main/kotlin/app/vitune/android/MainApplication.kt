@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
@@ -342,15 +343,19 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                     // 播放畫面往上拉開時，導覽列跟著往下滑出畫面。
                     // 這層外框是 AnimatedContent（不吃 align），所以包一個滿版 Box 再貼底，否則會跑到最上面。
                     if (!imeVisible) {
-                        val expandFraction = with(playerBottomSheetState) {
-                            ((value - collapsedBound) / (expandedBound - collapsedBound)).coerceIn(0f, 1f)
-                        }
+                        val sheet = playerBottomSheetState
                         Box(modifier = Modifier.fillMaxSize()) {
                             SpewtifyBottomBar(
                                 bottomInset = bottomDp,
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
-                                    .offset(y = (navBarDp + bottomDp) * expandFraction)
+                                    // 拖曳播放畫面時每一格都在變：在排版階段才讀，不讓整個外框每格重組
+                                    .offset {
+                                        val fraction = with(sheet) {
+                                            ((value - collapsedBound) / (expandedBound - collapsedBound)).coerceIn(0f, 1f)
+                                        }
+                                        IntOffset(0, ((navBarDp + bottomDp) * fraction).roundToPx())
+                                    }
                             )
                         }
                     }

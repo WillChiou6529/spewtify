@@ -218,8 +218,9 @@ internal constructor(
         }
     }
 
-    val preUpPostDownNestedScrollConnection
-        get() = object : NestedScrollConnection {
+    // Spewtify：同一個實例（原本每次讀都 new 一個，播放畫面每次重組就換掉，拖到一半 isTopReached 會被重置）
+    val preUpPostDownNestedScrollConnection: NestedScrollConnection by lazy {
+        object : NestedScrollConnection {
             var isTopReached = false
 
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -262,6 +263,7 @@ internal constructor(
                 return Velocity.Zero
             }
         }
+    }
 
     @JvmInline
     value class Anchor private constructor(internal val value: Int) {

@@ -1,5 +1,6 @@
 package app.vitune.android.ui.screens.player
 
+import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Matrix
 import android.net.ConnectivityManager
@@ -25,7 +26,13 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -38,9 +45,25 @@ import app.vitune.providers.innertube.requests.officialMusicVideo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 private const val TAG = "MvBackground"
+
+/** MV 影片的磁碟快取（50MB，最久沒看的先刪）；跟播歌的快取分開，不會擠掉歌曲快取。 */
+@OptIn(UnstableApi::class)
+private object MvCache {
+    @Volatile
+    private var cache: SimpleCache? = null
+
+    fun get(context: Context): SimpleCache = cache ?: synchronized(this) {
+        cache ?: SimpleCache(
+            File(context.applicationContext.cacheDir, "mv_cache"),
+            LeastRecentlyUsedCacheEvictor(50L * 1024 * 1024),
+            StandaloneDatabaseProvider(context.applicationContext)
+        ).also { cache = it }
+    }
+}
 
 /** 歌曲 id → MV 影像網址（"" = 這首沒有 MV）。App 關掉前有效；網址大約幾小時後過期，失敗會重抓。 */
 private val mvUrlCache = ConcurrentHashMap<String, String>()
@@ -144,7 +167,17 @@ fun MvBackground(
     val currentUrl = url ?: return
 
     val player = remember(currentUrl) {
-        ExoPlayer.Builder(context).build().apply {
+        // 走磁碟快取：循環播放時第二圈起不用再下載，再展開同一首也不用重抓
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    CacheDataSource.Factory()
+                        .setCache(MvCache.get(context))
+                        .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory())
+                        .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                )
+            )
+            .build().apply {
             volume = 0f
             repeatMode = Player.REPEAT_MODE_ONE
         }
@@ -175,7 +208,8 @@ fun MvBackground(
         }
         player.addListener(listener)
         player.setVideoTextureView(textureView)
-        player.setMediaItem(MediaItem.fromUri(currentUrl))
+        // 網址每次取都不一樣（有時效參數），快取 key 用歌曲 id 才能重複用
+        player.setMediaItem(MediaItem.Builder().setUri(currentUrl).setCustomCacheKey("mv:$mediaId").build())
         player.prepare()
         // 從跟歌差不多的位置開始，像「這首歌的片段」
         player.seekTo(audioPositionMs().coerceAtLeast(0L))
