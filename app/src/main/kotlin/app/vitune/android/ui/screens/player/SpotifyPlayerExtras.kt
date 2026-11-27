@@ -210,7 +210,7 @@ fun LyricsPreviewCard(
     val synced = remember(lyrics?.synced) {
         lyrics?.synced?.takeIf { it.isNotBlank() }?.let { raw ->
             LrcParser.parse(raw)?.toLrcFile()?.let { file ->
-                val offset = file.offset.inWholeMilliseconds
+                val offset = file.offset?.inWholeMilliseconds ?: 0L
                 file.lines.entries
                     .filter { it.value.isNotBlank() }
                     .map { (it.key - offset) to it.value.trim() }
