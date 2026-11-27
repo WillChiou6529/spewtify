@@ -145,6 +145,20 @@ fun BuiltInPlaylistSongs(
 
     val [currentMediaId, playing] = playingSong(binder)
 
+    val playRow: @Composable () -> Unit = {
+        SpotifyPlayRow(
+            enabled = shown.isNotEmpty(),
+            onShuffle = {
+                binder?.stopRadio()
+                binder?.player?.forcePlayFromBeginning(shown.shuffled().map(Song::asMediaItem))
+            },
+            onPlay = {
+                binder?.stopRadio()
+                binder?.player?.forcePlayFromBeginning(shown.map(Song::asMediaItem))
+            }
+        )
+    }
+
     Box(modifier = modifier) {
         LazyColumn(
             state = lazyListState,
@@ -164,7 +178,7 @@ fun BuiltInPlaylistSongs(
                         .height(180.dp)
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0xFF5038A0), Color(0xFF2A1F5C), colorPalette.background0)
+                                listOf(Color(0xFF5038A0), Color(0xFF2A1F5C))
                             )
                         )
                         .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -183,19 +197,8 @@ fun BuiltInPlaylistSongs(
                 }
             }
 
-            item(key = "spotify_play") {
-                SpotifyPlayRow(
-                    enabled = shown.isNotEmpty(),
-                    onShuffle = {
-                        binder?.stopRadio()
-                        binder?.player?.forcePlayFromBeginning(shown.shuffled().map(Song::asMediaItem))
-                    },
-                    onPlay = {
-                        binder?.stopRadio()
-                        binder?.player?.forcePlayFromBeginning(shown.map(Song::asMediaItem))
-                    }
-                )
-            }
+            // 收藏頁：banner → 播放列 → header；其他頁：header → 播放列
+            if (builtInPlaylist == BuiltInPlaylist.Favorites) item(key = "spotify_play") { playRow() }
 
             item(
                 key = "header",
@@ -260,6 +263,8 @@ fun BuiltInPlaylistSongs(
                     }
                 }
             }
+
+            if (builtInPlaylist != BuiltInPlaylist.Favorites) item(key = "spotify_play") { playRow() }
 
             if (builtInPlaylist == BuiltInPlaylist.Favorites && tagCounts.isNotEmpty()) item(
                 key = "tags",

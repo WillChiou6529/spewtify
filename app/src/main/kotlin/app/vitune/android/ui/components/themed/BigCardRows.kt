@@ -15,17 +15,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.vitune.android.charts.ChartCard
+import app.vitune.android.charts.GenreCovers
 import app.vitune.android.utils.color
 import app.vitune.android.utils.semiBold
 import app.vitune.android.utils.thumbnail
@@ -276,32 +280,60 @@ fun ArtistCircleRow(
     }
 }
 
-/** Spotify 式「瀏覽全部」的彩色曲風格子：2 欄、寬矩形、左上白字。 */
+/**
+ * Spotify 式「瀏覽全部」曲風格子：2 欄寬矩形，底圖＝該曲風第一首歌的封面（GenreCovers），
+ * 下半部暗漸層＋白字；封面還沒抓到時是素色底，不用彩色。
+ */
 @Composable
 fun GenreTileGrid(
-    tiles: List<Pair<String, Long>>,
-    onClick: (Int) -> Unit,
+    moods: List<Innertube.Mood.Item>,
+    onClick: (Innertube.Mood.Item) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val typography = LocalAppearance.current.typography
+    val (colorPalette, typography) = LocalAppearance.current
+    val context = LocalContext.current
+    val px = 240.dp.px
     Column(modifier = modifier.padding(horizontal = 16.dp)) {
-        tiles.withIndex().chunked(2).forEach { row ->
+        moods.chunked(2).forEach { row ->
             androidx.compose.foundation.layout.Row(modifier = Modifier.padding(bottom = 10.dp)) {
-                row.forEachIndexed { i, (index, tile) ->
+                row.forEachIndexed { i, mood ->
+                    val cover by produceState(initialValue = GenreCovers.peek(mood), mood.key) {
+                        if (value == null) value = GenreCovers.cover(context.applicationContext, mood)
+                    }
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = if (i == 0) 0.dp else 10.dp)
                             .height(96.dp)
                             .clip(8.dp.roundedShape)
-                            .background(Color(tile.second))
-                            .clickable { onClick(index) }
+                            .background(colorPalette.background2)
+                            .clickable { onClick(mood) }
                     ) {
+                        cover?.let { url ->
+                            AsyncImage(
+                                model = url.thumbnail(px),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.matchParentSize()
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.72f))
+                                    )
+                                )
+                        )
                         BasicText(
-                            text = tile.first,
+                            text = mood.title,
                             style = typography.s.semiBold.color(Color.White),
                             maxLines = 2,
-                            modifier = Modifier.padding(12.dp)
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(12.dp)
                         )
                     }
                 }

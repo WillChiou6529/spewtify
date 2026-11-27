@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +56,8 @@ import app.vitune.core.ui.utils.px
 import app.vitune.core.ui.utils.roundedShape
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
+import java.text.Collator
+import java.util.Locale
 
 private val Green = Color(0xFF1ED760)
 private val Thumb = 64.dp
@@ -69,6 +73,7 @@ private data class LibraryRow(
     val circle: Boolean,
     val sortName: String,
     val addedAt: Long,
+    val group: Int,
     val onClick: () -> Unit
 )
 
@@ -106,13 +111,16 @@ fun HomeLibrary(
     val albumLabel = stringResource(R.string.library_type_album)
     val songsFormat = stringResource(R.string.format_library_song_count)
 
-    val rows = buildList {
-        if (filter == null || filter == LibraryFilter.Playlists) playlists.forEachIndexed { i, p ->
+    val rows = remember(
+        filter, alphabetical, playlists, artists, albums,
+        playlistLabel, artistLabel, albumLabel, songsFormat
+    ) { buildList {
+        if (filter == null || filter == LibraryFilter.Playlists) playlists.forEach { p ->
             add(
                 LibraryRow(
                     key = "p:${p.id}", title = p.name, subtitle = "$playlistLabel • ${songsFormat.format(p.songCount)}",
-                    thumbnailUrl = p.thumbnail, circle = false, sortName = p.name.lowercase(),
-                    addedAt = Long.MAX_VALUE - i, onClick = { onPlaylistClick(p.id) }
+                    thumbnailUrl = p.thumbnail, circle = false, sortName = p.name,
+                    addedAt = 0L, group = 0, onClick = { onPlaylistClick(p.id) }
                 )
             )
         }
@@ -120,8 +128,8 @@ fun HomeLibrary(
             add(
                 LibraryRow(
                     key = "a:${a.id}", title = a.name.orEmpty(), subtitle = artistLabel,
-                    thumbnailUrl = a.thumbnailUrl, circle = true, sortName = a.name.orEmpty().lowercase(),
-                    addedAt = a.bookmarkedAt ?: 0L, onClick = { onArtistClick(a.id) }
+                    thumbnailUrl = a.thumbnailUrl, circle = true, sortName = a.name.orEmpty(),
+                    addedAt = a.bookmarkedAt ?: 0L, group = 1, onClick = { onArtistClick(a.id) }
                 )
             )
         }
@@ -130,12 +138,20 @@ fun HomeLibrary(
                 LibraryRow(
                     key = "al:${al.id}", title = al.title.orEmpty(),
                     subtitle = listOfNotNull(albumLabel, al.authorsText?.takeIf { it.isNotBlank() }).joinToString(" • "),
-                    thumbnailUrl = al.thumbnailUrl, circle = false, sortName = al.title.orEmpty().lowercase(),
-                    addedAt = al.bookmarkedAt ?: 0L, onClick = { onAlbumClick(al.id) }
+                    thumbnailUrl = al.thumbnailUrl, circle = false, sortName = al.title.orEmpty(),
+                    addedAt = al.bookmarkedAt ?: 0L, group = 2, onClick = { onAlbumClick(al.id) }
                 )
             )
         }
-    }.let { list -> if (alphabetical) list.sortedBy { it.sortName } else list.sortedByDescending { it.addedAt } }
+    }.let { list ->
+        if (alphabetical) {
+            val collator = Collator.getInstance(Locale.getDefault())
+            list.sortedWith { a, b -> collator.compare(a.sortName, b.sortName) }
+        } else {
+            // 播放清單沒有時間欄位（已依新增順序排好），所以混排時分段：播放清單 → 藝人 → 專輯，藝人／專輯段內照收藏時間新到舊
+            list.sortedWith(compareBy<LibraryRow> { it.group }.thenByDescending { it.addedAt })
+        }
+    } }
 
     if (creating) TextFieldDialog(
         hintText = stringResource(R.string.enter_playlist_name_prompt),
@@ -167,7 +183,7 @@ fun HomeLibrary(
             ) {
                 Image(
                     painter = painterResource(R.drawable.settings),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.a11y_settings),
                     colorFilter = ColorFilter.tint(colorPalette.text),
                     modifier = Modifier.size(18.dp)
                 )
@@ -179,24 +195,29 @@ fun HomeLibrary(
                     .weight(1f)
                     .padding(start = 12.dp)
             )
-            HeaderIcon(R.drawable.search, onSearchClick)
-            HeaderIcon(R.drawable.add, { creating = true })
+            HeaderIcon(R.drawable.search, stringResource(R.string.nav_search), onSearchClick)
+            HeaderIcon(R.drawable.add, stringResource(R.string.new_playlist), { creating = true })
         }
 
         // 標籤：再點一次取消篩選
         LazyRow(modifier = Modifier.padding(bottom = 8.dp)) {
             items(items = LibraryFilter.entries, key = { it.name }) { f ->
                 val selected = filter == f
-                BasicText(
-                    text = stringResource(f.label),
-                    style = typography.xs.semiBold.color(if (selected) Color.Black else colorPalette.text),
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .padding(start = if (f.ordinal == 0) 16.dp else 8.dp)
-                        .clip(17.dp.roundedShape)
+                        .sizeIn(minHeight = 40.dp)
+                        .clip(20.dp.roundedShape)
                         .background(if (selected) Green else colorPalette.background2)
                         .clickable { filter = if (selected) null else f }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                        .padding(horizontal = 16.dp)
+                ) {
+                    BasicText(
+                        text = stringResource(f.label),
+                        style = typography.xs.semiBold.color(if (selected) Color.Black else colorPalette.text)
+                    )
+                }
             }
         }
 
@@ -249,17 +270,34 @@ fun HomeLibrary(
 
             items(items = rows, key = { it.key }) { row -> LibraryItemRow(row) }
 
+            // 沒有任何可顯示的收藏：篩到藝人／專輯但沒有，或播放清單篩選／整個音樂庫都空（播放清單還有固定兩列，故只在藝人／專輯或全空時提示）
+            if (rows.isEmpty() && filter != LibraryFilter.Playlists) item(key = "empty") {
+                BasicText(
+                    text = stringResource(
+                        when (filter) {
+                            LibraryFilter.Artists -> R.string.library_empty_artists
+                            LibraryFilter.Albums -> R.string.library_empty_albums
+                            else -> R.string.library_empty
+                        }
+                    ),
+                    style = typography.s.color(colorPalette.textSecondary).copy(textAlign = TextAlign.Center),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 48.dp)
+                )
+            }
+
             item(key = "bottom") { Spacer(Modifier.height(16.dp)) }
         }
     }
 }
 
 @Composable
-private fun HeaderIcon(icon: Int, onClick: () -> Unit) {
+private fun HeaderIcon(icon: Int, description: String, onClick: () -> Unit) {
     val colorPalette = LocalAppearance.current.colorPalette
     Image(
         painter = painterResource(icon),
-        contentDescription = null,
+        contentDescription = description,
         colorFilter = ColorFilter.tint(colorPalette.text),
         modifier = Modifier
             .clip(CircleShape)

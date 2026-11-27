@@ -33,11 +33,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import app.vitune.android.tagging.Vibe
-import app.vitune.android.tagging.VibePlaylist
 import app.vitune.android.tagging.catching
 import app.vitune.android.ui.components.themed.VibeRow
 import app.vitune.android.ui.components.themed.ArtistCircleRow
@@ -130,8 +130,8 @@ fun QuickPicks(
     // 按「重試」＋1：重抓推薦頁、排行榜、Daily Mix
     var retryKey by remember { mutableIntStateOf(0) }
 
-    // Spewtify：「現在想聽什麼？」正在產生歌單的那個選項（null＝沒有）
-    var loadingVibe by remember { mutableStateOf<Vibe?>(null) }
+    // Spewtify：頂部心情／情境小標籤選中的那個（null＝「所有」＝完整首頁）；切分頁回來還記得
+    var selectedVibe by rememberSaveable { mutableStateOf<Vibe?>(null) }
     var loadingRadio by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -313,73 +313,108 @@ fun QuickPicks(
                     )
                 }
                 VibeRow(
-                loading = loadingVibe,
-                modifier = Modifier.weight(1f),
-                onClick = { vibe ->
-                    loadingVibe = vibe
-                    coroutineScope.launch {
-                        val result = try {
-                            catching { VibePlaylist.build(vibe) }.getOrNull()
-                        } finally {
-                            loadingVibe = null
-                        }
-                        if (result == null || result.songs.isEmpty()) {
-                            context.toast(context.getString(R.string.vibe_empty))
-                            return@launch
-                        }
-                        if (result.freshCount == 0) context.toast(context.getString(R.string.vibe_offline))
-                        binder?.stopRadio()
-                        binder?.player?.forcePlayFromBeginning(result.songs.map { it.toSong().asMediaItem })
-                    }
-                }
-            )
+                    selected = selectedVibe,
+                    onSelect = { selectedVibe = it },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
-            ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
+            val vibe = selectedVibe
+            if (vibe != null) VibeHome(
+                vibe = vibe,
+                onPlaylistClick = onPlaylistClick,
+                contentPadding = endPaddingValues
+            ) else {
+                ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
 
-            // 推薦頁（開始聆聽、熱門專輯、相似藝人、推薦播放清單）失敗時，排行榜／熱門藝人／電台／Daily Mix 照樣顯示
-            val related = relatedPageResult?.getOrNull()
-            if (related != null) {
-                BasicText(
-                    text = stringResource(R.string.home_start_listening_subtitle),
-                    style = typography.xs.secondary,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 24.dp)
-                        .padding(endPaddingValues)
-                )
-                BasicText(
-                    text = stringResource(R.string.home_start_listening),
-                    style = sectionTitleStyle,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 2.dp, bottom = 8.dp)
-                        .padding(endPaddingValues)
-                )
-                LazyHorizontalGrid(
-                    state = quickPicksLazyGridState,
-                    rows = GridCells.Fixed(3),
-                    flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
-                    contentPadding = endPaddingValues,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 3)
-                ) {
-                    trending?.let { song ->
-                        item {
+                // 推薦頁（開始聆聽、熱門專輯、相似藝人、推薦播放清單）失敗時，排行榜／熱門藝人／電台／Daily Mix 照樣顯示
+                val related = relatedPageResult?.getOrNull()
+                if (related != null) {
+                    BasicText(
+                        text = stringResource(R.string.home_start_listening_subtitle),
+                        style = typography.xs.secondary,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 24.dp)
+                            .padding(endPaddingValues)
+                    )
+                    BasicText(
+                        text = stringResource(R.string.home_start_listening),
+                        style = sectionTitleStyle,
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 2.dp, bottom = 8.dp)
+                            .padding(endPaddingValues)
+                    )
+                    LazyHorizontalGrid(
+                        state = quickPicksLazyGridState,
+                        rows = GridCells.Fixed(3),
+                        flingBehavior = rememberSnapFlingBehavior(snapLayoutInfoProvider),
+                        contentPadding = endPaddingValues,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 3)
+                    ) {
+                        trending?.let { song ->
+                            item {
+                                SongItem(
+                                    modifier = Modifier
+                                        .combinedClickable(
+                                            onLongClick = {
+                                                menuState.display {
+                                                    NonQueuedMediaItemMenu(
+                                                        onDismiss = menuState::hide,
+                                                        mediaItem = song.asMediaItem,
+                                                        onRemoveFromQuickPicks = {
+                                                            query {
+                                                                Database.clearEventsFor(song.id)
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                val mediaItem = song.asMediaItem
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlay(mediaItem)
+                                                binder?.setupRadio(
+                                                    NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                                )
+                                            }
+                                        )
+                                        .animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                        .width(itemInHorizontalGridWidth),
+                                    song = song,
+                                    thumbnailSize = Dimensions.thumbnails.song,
+                                    trailingContent = {
+                                        Image(
+                                            painter = painterResource(R.drawable.star),
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(colorPalette.accent),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    },
+                                    showDuration = false,
+                                    isPlaying = playing && currentMediaId == song.id
+                                )
+                            }
+                        }
+
+                        items(
+                            items = related.songs?.dropLast(if (trending == null) 0 else 1)
+                                ?: emptyList(),
+                            key = Innertube.SongItem::key
+                        ) { song ->
                             SongItem(
+                                song = song,
+                                thumbnailSize = Dimensions.thumbnails.song,
                                 modifier = Modifier
                                     .combinedClickable(
                                         onLongClick = {
                                             menuState.display {
                                                 NonQueuedMediaItemMenu(
                                                     onDismiss = menuState::hide,
-                                                    mediaItem = song.asMediaItem,
-                                                    onRemoveFromQuickPicks = {
-                                                        query {
-                                                            Database.clearEventsFor(song.id)
-                                                        }
-                                                    }
+                                                    mediaItem = song.asMediaItem
                                                 )
                                             }
                                         },
@@ -394,234 +429,190 @@ fun QuickPicks(
                                     )
                                     .animateItem(fadeInSpec = null, fadeOutSpec = null)
                                     .width(itemInHorizontalGridWidth),
-                                song = song,
-                                thumbnailSize = Dimensions.thumbnails.song,
-                                trailingContent = {
-                                    Image(
-                                        painter = painterResource(R.drawable.star),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(colorPalette.accent),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
                                 showDuration = false,
-                                isPlaying = playing && currentMediaId == song.id
+                                isPlaying = playing && currentMediaId == song.key
                             )
                         }
                     }
 
-                    items(
-                        items = related.songs?.dropLast(if (trending == null) 0 else 1)
-                            ?: emptyList(),
-                        key = Innertube.SongItem::key
-                    ) { song ->
-                        SongItem(
-                            song = song,
-                            thumbnailSize = Dimensions.thumbnails.song,
-                            modifier = Modifier
-                                .combinedClickable(
-                                    onLongClick = {
-                                        menuState.display {
-                                            NonQueuedMediaItemMenu(
-                                                onDismiss = menuState::hide,
-                                                mediaItem = song.asMediaItem
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        val mediaItem = song.asMediaItem
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlay(mediaItem)
-                                        binder?.setupRadio(
-                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                        )
-                                    }
+                    // Spotify 順序：開始聆聽 → 熱門專輯和單曲（大方卡）→ 排行榜 → 熱門藝人 → 為你打造
+                    related.albums?.takeIf { it.isNotEmpty() }?.let { albums ->
+                        BasicText(
+                            text = stringResource(R.string.popular_albums_and_singles),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
+                        BigSquareRow(
+                            items = albums.map {
+                                BigSquare(
+                                    key = it.key,
+                                    thumbnailUrl = it.thumbnail?.url,
+                                    title = it.info?.name.orEmpty(),
+                                    subtitle = it.authors?.joinToString(", ") { a -> a.name.orEmpty() }
                                 )
-                                .animateItem(fadeInSpec = null, fadeOutSpec = null)
-                                .width(itemInHorizontalGridWidth),
-                            showDuration = false,
-                            isPlaying = playing && currentMediaId == song.key
+                            },
+                            onClick = { index -> albums.getOrNull(index)?.let(onAlbumClick) },
+                            contentPadding = endPaddingValues
                         )
                     }
-                }
-
-                // Spotify 順序：開始聆聽 → 熱門專輯和單曲（大方卡）→ 排行榜 → 熱門藝人 → 為你打造
-                related.albums?.takeIf { it.isNotEmpty() }?.let { albums ->
-                    BasicText(
-                        text = stringResource(R.string.popular_albums_and_singles),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-                    BigSquareRow(
-                        items = albums.map {
-                            BigSquare(
-                                key = it.key,
-                                thumbnailUrl = it.thumbnail?.url,
-                                title = it.info?.name.orEmpty(),
-                                subtitle = it.authors?.joinToString(", ") { a -> a.name.orEmpty() }
-                            )
-                        },
-                        onClick = { index -> albums.getOrNull(index)?.let(onAlbumClick) },
-                        contentPadding = endPaddingValues
-                    )
-                }
-            } else if (relatedPageResult?.exceptionOrNull() != null) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(all = 16.dp)
-                ) {
-                    BasicText(
-                        text = stringResource(R.string.error_message),
-                        style = typography.s.secondary.center
-                    )
-                    BasicText(
-                        text = stringResource(R.string.retry),
-                        style = typography.s.semiBold.copy(color = Color.Black),
+                } else if (relatedPageResult?.exceptionOrNull() != null) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .padding(top = 12.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF1ED760))
-                            .clickable {
-                                relatedPageResult = null
-                                retryKey++
-                            }
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                    )
-                }
-            } else ShimmerHost {
-                repeat(4) {
-                    SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
-                }
-                TextPlaceholder(modifier = sectionTextModifier)
-                Row {
-                    repeat(2) {
-                        AlbumItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
+                            .fillMaxWidth()
+                            .padding(all = 16.dp)
+                    ) {
+                        BasicText(
+                            text = stringResource(R.string.error_message),
+                            style = typography.s.secondary.center
+                        )
+                        BasicText(
+                            text = stringResource(R.string.retry),
+                            style = typography.s.semiBold.copy(color = Color.Black),
+                            modifier = Modifier
+                                .padding(top = 12.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1ED760))
+                                .clickable {
+                                    relatedPageResult = null
+                                    retryKey++
+                                }
+                                .padding(horizontal = 20.dp, vertical = 10.dp)
                         )
                     }
-                }
-            }
-
-                if (chartCards.isNotEmpty()) {
-                    BasicText(
-                        text = stringResource(R.string.charts),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-                    ChartCardRow(
-                        cards = chartCards,
-                        onClick = onPlaylistClick,
-                        contentPadding = endPaddingValues
-                    )
-                }
-
-                if (chartArtists.isNotEmpty()) {
-                    BasicText(
-                        text = stringResource(R.string.popular_artists),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-                    ArtistCircleRow(
-                        artists = chartArtists,
-                        onClick = onArtistClick,
-                        contentPadding = endPaddingValues
-                    )
+                } else ShimmerHost {
+                    repeat(4) {
+                        SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
+                    }
+                    TextPlaceholder(modifier = sectionTextModifier)
+                    Row {
+                        repeat(2) {
+                            AlbumItemPlaceholder(
+                                thumbnailSize = Dimensions.thumbnails.album,
+                                alternative = true
+                            )
+                        }
+                    }
                 }
 
-                // 熱門電台：點了抓藝人頁的電台入口，直接開播
-                if (chartArtists.isNotEmpty()) {
-                    BasicText(
-                        text = stringResource(R.string.popular_radio),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-                    RadioCardRow(
-                        artists = chartArtists.take(12),
-                        loadingKey = loadingRadio,
-                        onClick = { artist ->
-                            loadingRadio = artist.key
-                            coroutineScope.launch {
-                                val endpoint = try {
-                                    catching {
-                                        Innertube.artistPage(BrowseBody(browseId = artist.key))?.getOrNull()?.radioEndpoint
-                                    }.getOrNull()
-                                } finally {
-                                    loadingRadio = null
+                    if (chartCards.isNotEmpty()) {
+                        BasicText(
+                            text = stringResource(R.string.charts),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
+                        ChartCardRow(
+                            cards = chartCards,
+                            onClick = onPlaylistClick,
+                            contentPadding = endPaddingValues
+                        )
+                    }
+
+                    if (chartArtists.isNotEmpty()) {
+                        BasicText(
+                            text = stringResource(R.string.popular_artists),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
+                        ArtistCircleRow(
+                            artists = chartArtists,
+                            onClick = onArtistClick,
+                            contentPadding = endPaddingValues
+                        )
+                    }
+
+                    // 熱門電台：點了抓藝人頁的電台入口，直接開播
+                    if (chartArtists.isNotEmpty()) {
+                        BasicText(
+                            text = stringResource(R.string.popular_radio),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
+                        RadioCardRow(
+                            artists = chartArtists.take(12),
+                            loadingKey = loadingRadio,
+                            onClick = { artist ->
+                                loadingRadio = artist.key
+                                coroutineScope.launch {
+                                    val endpoint = try {
+                                        catching {
+                                            Innertube.artistPage(BrowseBody(browseId = artist.key))?.getOrNull()?.radioEndpoint
+                                        }.getOrNull()
+                                    } finally {
+                                        loadingRadio = null
+                                    }
+                                    if (endpoint == null) {
+                                        context.toast(context.getString(R.string.radio_failed))
+                                        return@launch
+                                    }
+                                    binder?.stopRadio()
+                                    binder?.playRadio(endpoint)
                                 }
-                                if (endpoint == null) {
-                                    context.toast(context.getString(R.string.vibe_empty))
-                                    return@launch
-                                }
+                            },
+                            contentPadding = endPaddingValues
+                        )
+                    }
+
+                    if (dailyMixes.isNotEmpty()) {
+                        BasicText(
+                            text = stringResource(R.string.daily_mixes),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
+                        DailyMixRow(
+                            mixes = dailyMixes,
+                            contentPadding = endPaddingValues,
+                            onClick = { mix ->
                                 binder?.stopRadio()
-                                binder?.playRadio(endpoint)
+                                binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
                             }
-                        },
-                        contentPadding = endPaddingValues
-                    )
-                }
+                        )
+                    }
 
-                if (dailyMixes.isNotEmpty()) {
-                    BasicText(
-                        text = stringResource(R.string.daily_mixes),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-                    DailyMixRow(
-                        mixes = dailyMixes,
-                        contentPadding = endPaddingValues,
-                        onClick = { mix ->
-                            binder?.stopRadio()
-                            binder?.player?.forcePlayFromBeginning(mix.songs.map { it.toSong().asMediaItem })
-                        }
-                    )
-                }
+                    related?.artists?.takeIf { it.isNotEmpty() }?.let { artists ->
+                        BasicText(
+                            text = stringResource(R.string.similar_artists),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
 
-                related?.artists?.takeIf { it.isNotEmpty() }?.let { artists ->
-                    BasicText(
-                        text = stringResource(R.string.similar_artists),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
-
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = artists,
-                            key = Innertube.ArtistItem::key
-                        ) { artist ->
-                            ArtistItem(
-                                artist = artist,
-                                thumbnailSize = Dimensions.thumbnails.artist,
-                                alternative = true,
-                                modifier = Modifier.clickable { onArtistClick(artist) }
-                            )
+                        LazyRow(contentPadding = endPaddingValues) {
+                            items(
+                                items = artists,
+                                key = Innertube.ArtistItem::key
+                            ) { artist ->
+                                ArtistItem(
+                                    artist = artist,
+                                    thumbnailSize = Dimensions.thumbnails.artist,
+                                    alternative = true,
+                                    modifier = Modifier.clickable { onArtistClick(artist) }
+                                )
+                            }
                         }
                     }
-                }
 
-                related?.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
-                    BasicText(
-                        text = stringResource(R.string.recommended_playlists),
-                        style = sectionTitleStyle,
-                        modifier = sectionTextModifier
-                    )
+                    related?.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
+                        BasicText(
+                            text = stringResource(R.string.recommended_playlists),
+                            style = sectionTitleStyle,
+                            modifier = sectionTextModifier
+                        )
 
-                    LazyRow(contentPadding = endPaddingValues) {
-                        items(
-                            items = playlists,
-                            key = Innertube.PlaylistItem::key
-                        ) { playlist ->
-                            PlaylistItem(
-                                playlist = playlist,
-                                thumbnailSize = Dimensions.thumbnails.playlist,
-                                alternative = true,
-                                modifier = Modifier.clickable { onPlaylistClick(playlist) }
-                            )
+                        LazyRow(contentPadding = endPaddingValues) {
+                            items(
+                                items = playlists,
+                                key = Innertube.PlaylistItem::key
+                            ) { playlist ->
+                                PlaylistItem(
+                                    playlist = playlist,
+                                    thumbnailSize = Dimensions.thumbnails.playlist,
+                                    alternative = true,
+                                    modifier = Modifier.clickable { onPlaylistClick(playlist) }
+                                )
+                            }
                         }
                     }
-                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }

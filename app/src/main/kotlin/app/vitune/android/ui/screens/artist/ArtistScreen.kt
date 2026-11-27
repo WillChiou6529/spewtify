@@ -181,6 +181,7 @@ fun ArtistScreen(browseId: String) {
                     when (currentTabIndex) {
                         0 -> ArtistOverview(
                             youtubeArtistPage = artistPage,
+                            placeholderHeroUrl = artist?.thumbnailUrl,
                             thumbnailContent = thumbnailContent,
                             headerContent = headerContent,
                             onAlbumClick = { albumRoute(it) },

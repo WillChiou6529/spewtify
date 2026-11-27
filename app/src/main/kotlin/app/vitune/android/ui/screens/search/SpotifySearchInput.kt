@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
@@ -51,6 +52,7 @@ import app.vitune.android.Database
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.models.SearchQuery
 import app.vitune.android.models.Song
 import app.vitune.android.query
 import app.vitune.android.utils.asMediaItem
@@ -107,6 +109,9 @@ fun SpotifySearchInput(
 
     val recent by remember { Database.recentSongs(40).distinctUntilChanged() }.collectAsState(initial = emptyList())
 
+    val history by remember { Database.queries("%").distinctUntilChanged() }
+        .collectAsState(initial = emptyList<SearchQuery>())
+
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(focused) {
         if (!focused) return@LaunchedEffect
@@ -134,7 +139,7 @@ fun SpotifySearchInput(
         ) {
             Image(
                 painter = painterResource(R.drawable.arrow_forward),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.back),
                 colorFilter = ColorFilter.tint(colorPalette.text),
                 modifier = Modifier
                     .clip(20.dp.roundedShape)
@@ -175,12 +180,13 @@ fun SpotifySearchInput(
                 }
                 if (state.text.isNotEmpty()) Image(
                     painter = painterResource(R.drawable.close),
-                    contentDescription = null,
+                    contentDescription = stringResource(R.string.clear),
                     colorFilter = ColorFilter.tint(colorPalette.text),
                     modifier = Modifier
-                        .clip(16.dp.roundedShape)
+                        .sizeIn(minWidth = 40.dp, minHeight = 40.dp)
+                        .clip(20.dp.roundedShape)
                         .clickable { state.clearText() }
-                        .padding(6.dp)
+                        .padding(10.dp)
                         .size(20.dp)
                 )
             }
@@ -191,6 +197,49 @@ fun SpotifySearchInput(
             modifier = Modifier.fillMaxSize()
         ) {
             if (state.text.isEmpty()) {
+                if (history.isNotEmpty()) item(key = "history_title") {
+                    BasicText(
+                        text = stringResource(R.string.recent_searches),
+                        style = typography.l.semiBold.copy(fontSize = 22.sp, color = colorPalette.text),
+                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp)
+                    )
+                }
+                items(items = history.take(10), key = { "h:${it.id}" }) { h ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSearch(h.query) }
+                            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        BasicText(
+                            text = h.query,
+                            style = typography.s.color(colorPalette.text),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 16.dp)
+                        )
+                        Image(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.a11y_remove),
+                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                            modifier = Modifier
+                                .sizeIn(minWidth = 40.dp, minHeight = 40.dp)
+                                .clip(20.dp.roundedShape)
+                                .clickable { query { Database.delete(h) } }
+                                .padding(10.dp)
+                                .size(20.dp)
+                        )
+                    }
+                }
                 if (recent.isNotEmpty()) item(key = "title") {
                     BasicText(
                         text = stringResource(R.string.recently_played),
@@ -212,7 +261,34 @@ fun SpotifySearchInput(
                         onRemove = { query { Database.clearEventsFor(song.id) } }
                     )
                 }
-            } else items(items = suggestions, key = { "s:$it" }) { suggestion ->
+            } else {
+                item(key = "search_for") {
+                    val typed = state.text.toString().trim()
+                    if (typed.isNotEmpty()) Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSearch(typed) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(colorPalette.text),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        BasicText(
+                            text = stringResource(R.string.search_for_format, typed),
+                            style = typography.s.semiBold.color(colorPalette.text),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 16.dp)
+                        )
+                    }
+                }
+                items(items = suggestions, key = { "s:$it" }) { suggestion ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -246,6 +322,7 @@ fun SpotifySearchInput(
                             .size(20.dp)
                             .rotate(225f)
                     )
+                }
                 }
             }
         }
@@ -300,7 +377,7 @@ private fun RecentRow(
         // ⊕ 加入收藏／綠色 ✓ 已收藏
         Image(
             painter = painterResource(if (liked) R.drawable.check_circle else R.drawable.add_circle),
-            contentDescription = null,
+            contentDescription = stringResource(if (liked) R.string.a11y_unlike else R.string.like),
             colorFilter = ColorFilter.tint(if (liked) Green else colorPalette.textSecondary),
             modifier = Modifier
                 .clip(16.dp.roundedShape)
@@ -310,7 +387,7 @@ private fun RecentRow(
         )
         Image(
             painter = painterResource(R.drawable.close),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.a11y_remove),
             colorFilter = ColorFilter.tint(colorPalette.textSecondary),
             modifier = Modifier
                 .clip(16.dp.roundedShape)

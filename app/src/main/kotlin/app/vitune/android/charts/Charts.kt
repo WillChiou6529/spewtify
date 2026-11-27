@@ -108,9 +108,9 @@ object Charts {
         return when {
             "現場" in n || "Live" in n -> "Live Top 100"
             "本日" in n || "Daily" in n || "today" in n.lowercase() -> if (zh) TODAY_ZH else TODAY_EN
-            "前 50" in n || "Top 50" in n -> "Top 50"
-            "20" in n -> "Top 20"
             "百大" in n || "100" in n -> "Top 100"
+            "前 50" in n || "Top 50" in n || "50 大" in n -> "Top 50"
+            Regex("(?<!\\d)20(?!\\d)").containsMatchIn(n) && ("Top" in n || "前" in n || "大" in n) -> "Top 20"
             else -> n
         }
     }

@@ -237,7 +237,8 @@ fun LyricsPreviewCard(
     } else fixed!!.take(PREVIEW_LINES) to 0
 
     val cardColor = lerp(colorPalette.accent, Color.Black, 0.35f)
-    val upcoming = Color.Black.copy(alpha = 0.72f)
+    // 還沒唱到的句子：半透明白（主題色偏深時黑字會看不清）
+    val upcoming = Color.White.copy(alpha = 0.5f)
 
     Column(
         modifier = modifier

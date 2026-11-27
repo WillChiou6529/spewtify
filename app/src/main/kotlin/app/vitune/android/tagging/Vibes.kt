@@ -2,6 +2,7 @@ package app.vitune.android.tagging
 
 import android.util.Log
 import app.vitune.android.Database
+import app.vitune.android.models.Song
 import app.vitune.providers.innertube.Innertube
 import app.vitune.providers.innertube.models.bodies.BrowseBody
 import app.vitune.providers.innertube.requests.browse
@@ -60,6 +61,16 @@ data class VibeResult(val songs: List<MixSong>, val ownCount: Int, val freshCoun
 object VibePlaylist {
     private const val TOTAL = 50
 
+    /** 首頁篩選用：收藏裡符合這個心情／情境的歌（依原本順序，最多 limit 首）。 */
+    suspend fun ownSongs(vibe: Vibe, limit: Int = 30): List<Song> = withContext(Dispatchers.IO) {
+        val blocked = Database.blacklistedIds().toHashSet()
+        when {
+            vibe.situation != null -> Situations.songsFor(vibe.situation)
+            vibe.mood != null -> Database.songsWithTag(vibe.mood.id, limit * 2)
+            else -> emptyList()
+        }.filter { it.id !in blocked }.take(limit)
+    }
+
     /** 約 1/3 收藏裡符合的歌＋2/3 官方歌單的新歌；收藏不夠就用新歌補滿，沒網路就全用收藏。每次都重新洗牌。 */
     suspend fun build(vibe: Vibe, total: Int = TOTAL): VibeResult = withContext(Dispatchers.IO) {
         val random = Random(System.nanoTime())
@@ -112,6 +123,27 @@ object OfficialPlaylists {
             .groupBy({ it.first }, { it.second })
         if (map.isNotEmpty()) categories = map
         map
+    }
+
+    /** 首頁篩選用：官方對應分類裡的歌單（有封面，點了開歌單頁）；網路失敗回空清單。 */
+    suspend fun playlists(tags: List<Tag>, limit: Int = 12): List<Innertube.PlaylistItem> = coroutineScope {
+        val yt = YtTagIndex.ytContext()
+        val cats = catching { categories() }.getOrDefault(emptyMap())
+        tags.flatMap { cats[it].orEmpty() }
+            .map { (browseId, params) ->
+                async {
+                    catching {
+                        Innertube.browse(BrowseBody(context = yt, browseId = browseId, params = params))
+                            ?.getOrNull()?.items.orEmpty()
+                            .flatMap { it.items }
+                            .filterIsInstance<Innertube.PlaylistItem>()
+                    }.getOrDefault(emptyList())
+                }
+            }
+            .awaitAll()
+            .flatten()
+            .distinctBy { it.key }
+            .take(limit)
     }
 
     suspend fun songs(tags: List<Tag>, exclude: Set<String>, limit: Int, random: Random): List<MixSong> =

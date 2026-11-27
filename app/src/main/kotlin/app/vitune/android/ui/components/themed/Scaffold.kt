@@ -19,10 +19,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,12 +58,22 @@ fun Scaffold(
     onTabChange: (Int) -> Unit,
     tabColumnContent: TabsBuilder.() -> Unit,
     modifier: Modifier = Modifier,
-    tabsEditingTitle: String = stringResource(R.string.tabs),
     content: @Composable AnimatedVisibilityScope.(Int) -> Unit
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val insets = LocalPlayerAwareWindowInsets.current
     val tabs = TabsBuilder.rememberTabs(tabColumnContent)
+    val tabListState = rememberLazyListState()
+    // 第一次進來直接定位（不要動畫），之後切換才用動畫捲到選中的小標籤
+    var tabScrolledOnce by remember { mutableStateOf(false) }
+    LaunchedEffect(tabIndex, tabs.size) {
+        if (tabIndex !in 0 until tabs.size) return@LaunchedEffect
+        if (tabScrolledOnce) tabListState.animateScrollToItem(tabIndex)
+        else {
+            tabListState.scrollToItem(tabIndex)
+            tabScrolledOnce = true
+        }
+    }
 
     Column(
         modifier = modifier
@@ -73,7 +89,7 @@ fun Scaffold(
         ) {
             Image(
                 painter = painterResource(topIconButtonId),
-                contentDescription = null,
+                contentDescription = stringResource(R.string.back),
                 colorFilter = ColorFilter.tint(colorPalette.text),
                 modifier = Modifier
                     .clip(CircleShape)
@@ -81,7 +97,7 @@ fun Scaffold(
                     .padding(12.dp)
                     .size(22.dp)
             )
-            if (tabs.size > 1) LazyRow {
+            if (tabs.size > 1) LazyRow(state = tabListState) {
                 itemsIndexed(items = tabs, key = { _, tab -> tab.key }) { index, tab ->
                     val selected = index == tabIndex
                     BasicText(
@@ -90,9 +106,9 @@ fun Scaffold(
                         modifier = Modifier
                             .padding(start = if (index == 0) 4.dp else 8.dp, end = if (index == tabs.lastIndex) 16.dp else 0.dp)
                             .clip(17.dp.roundedShape)
-                            .background(if (selected) Color(0xFF1ED760) else colorPalette.background2)
+                            .background(if (selected) SpotifyGreen else colorPalette.background2)
                             .clickable { onTabChange(index) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
                     )
                 }
             }

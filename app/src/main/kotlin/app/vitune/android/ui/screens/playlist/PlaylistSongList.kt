@@ -71,6 +71,12 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// 排行榜標題：中文字用子字串比對，英文字用字界且不分大小寫（避免 "Stop"、"Desktop" 誤中 "top"）
+private val chartTitleRegex = Regex(
+    pattern = "百大|排行|熱播|發燒|前 50|\\b(?:top|charts?)\\b",
+    option = RegexOption.IGNORE_CASE
+)
+
 @Composable
 fun PlaylistSongList(
     browseId: String,
@@ -223,12 +229,28 @@ fun PlaylistSongList(
                     }
                 }
 
-                // 排行榜（標題有 百大／排行／熱播／發燒／Top）前面顯示名次
-                val isChart = playlistPage?.title.orEmpty().let { t ->
-                    listOf("百大", "排行", "熱播", "發燒", "Top", "Chart", "前 50").any { it in t }
-                }
+                // 排行榜（標題有 百大／排行／熱播／發燒／Top／Chart／前 50）前面顯示名次
+                val isChart = chartTitleRegex.containsMatchIn(playlistPage?.title.orEmpty())
 
                 itemsIndexed(items = playlistPage?.songsPage?.items ?: emptyList()) { index, song ->
+                    val songModifier = Modifier.combinedClickable(
+                        onLongClick = {
+                            menuState.display {
+                                NonQueuedMediaItemMenu(
+                                    onDismiss = menuState::hide,
+                                    mediaItem = song.asMediaItem
+                                )
+                            }
+                        },
+                        onClick = {
+                            playlistPage?.songsPage?.items?.map(Innertube.SongItem::asMediaItem)
+                                ?.let { mediaItems ->
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlayAtIndex(mediaItems, index)
+                                }
+                        }
+                    )
+
                     if (isChart) Row(verticalAlignment = Alignment.CenterVertically) {
                         BasicText(
                             text = "${index + 1}",
@@ -245,43 +267,13 @@ fun PlaylistSongList(
                             thumbnailSize = Dimensions.thumbnails.song,
                             modifier = Modifier
                                 .weight(1f)
-                                .combinedClickable(
-                                    onLongClick = {
-                                        menuState.display {
-                                            NonQueuedMediaItemMenu(onDismiss = menuState::hide, mediaItem = song.asMediaItem)
-                                        }
-                                    },
-                                    onClick = {
-                                        playlistPage?.songsPage?.items?.map(Innertube.SongItem::asMediaItem)
-                                            ?.let { mediaItems ->
-                                                binder?.stopRadio()
-                                                binder?.player?.forcePlayAtIndex(mediaItems, index)
-                                            }
-                                    }
-                                ),
+                                .then(songModifier),
                             isPlaying = playing && currentMediaId == song.key
                         )
                     } else SongItem(
                         song = song,
                         thumbnailSize = Dimensions.thumbnails.song,
-                        modifier = Modifier
-                            .combinedClickable(
-                                onLongClick = {
-                                    menuState.display {
-                                        NonQueuedMediaItemMenu(
-                                            onDismiss = menuState::hide,
-                                            mediaItem = song.asMediaItem
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    playlistPage?.songsPage?.items?.map(Innertube.SongItem::asMediaItem)
-                                        ?.let { mediaItems ->
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlayAtIndex(mediaItems, index)
-                                        }
-                                }
-                            ),
+                        modifier = songModifier,
                         isPlaying = playing && currentMediaId == song.key
                     )
                 }

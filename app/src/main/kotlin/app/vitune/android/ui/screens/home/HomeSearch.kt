@@ -5,6 +5,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import app.vitune.android.utils.secondary
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -76,8 +80,16 @@ fun HomeSearch(
     }
 
     val region = ChartRegion.fromCode(UIStatePreferences.chartsCountry)
-    val chartsPage by produceState<app.vitune.providers.innertube.requests.ChartsPage?>(null, region) {
-        value = catching { Charts.page(region) }.getOrNull()
+    // null＝載入中；切國家時先換成新國家的快取（沒有就顯示載入中），不會先顯示上一國的榜單
+    var chartsRetry by remember { mutableIntStateOf(0) }
+    val chartsResult by produceState(
+        initialValue = Charts.peek(region)?.let { Result.success(it) },
+        region,
+        chartsRetry
+    ) {
+        value = Charts.peek(region)?.let { Result.success(it) }
+        value = catching { Charts.page(region) }.getOrNull()?.let { Result.success(it) }
+            ?: Result.failure(IllegalStateException("charts ${region.code}"))
     }
 
     Column(
@@ -139,7 +151,41 @@ fun HomeSearch(
                         .clip(16.dp.roundedShape)
                         .background(if (selected) Color(0xFF1ED760) else colorPalette.background2)
                         .clickable { UIStatePreferences.chartsCountry = r.code }
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+        val chartsPage = chartsResult?.getOrNull()
+        when {
+            chartsResult == null -> Box(
+                modifier = Modifier
+                    .padding(endPaddingValues)
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(8.dp.roundedShape)
+                    .background(colorPalette.background1)
+            )
+
+            chartsPage == null -> Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(endPaddingValues)
+                    .padding(horizontal = 16.dp)
+            ) {
+                BasicText(
+                    text = stringResource(R.string.charts_failed),
+                    style = typography.xs.secondary,
+                    modifier = Modifier.weight(1f)
+                )
+                BasicText(
+                    text = stringResource(R.string.retry),
+                    style = typography.xs.semiBold.color(Color.Black),
+                    modifier = Modifier
+                        .clip(16.dp.roundedShape)
+                        .background(Color(0xFF1ED760))
+                        .clickable { chartsRetry++ }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
         }
@@ -188,10 +234,9 @@ fun HomeSearch(
                     style = typography.l.semiBold.copy(fontSize = 22.sp),
                     modifier = sectionTextModifier
                 )
-                val moods = page.moods
                 GenreTileGrid(
-                    tiles = moods.map { it.title to it.stripeColor },
-                    onClick = { index -> moods.getOrNull(index)?.let(onMoodClick) },
+                    moods = page.moods,
+                    onClick = onMoodClick,
                     modifier = Modifier.padding(endPaddingValues)
                 )
             }

@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -25,31 +24,29 @@ import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
 
 /**
- * 首頁「現在想聽什麼？」：一排小標籤（先心情、後情境），點一個就產生整條歌單並開始播。
- * loading＝正在產生的那個（顯示「產生中…」，其他暫時變淡、不能點）。
+ * 首頁頂部的心情／情境小標籤（Spotify「所有／音樂／Podcast」那排）：點一個＝首頁只顯示這個心情的內容（篩選），
+ * 不會自動換歌；要播就按篩選後畫面上的綠色播放鍵。「所有」＝回到完整首頁；再點一次選中的標籤也會回到「所有」。
  */
 @Composable
 fun VibeRow(
-    loading: Vibe?,
-    onClick: (Vibe) -> Unit,
+    selected: Vibe?,
+    onSelect: (Vibe?) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) = LazyRow(modifier = modifier, contentPadding = contentPadding) {
-    // Spotify 標籤列第一個是選中的「所有」（綠底黑字）
     item(key = "all") {
         Chip(
             text = stringResource(R.string.vibe_all),
-            selected = loading == null,
-            onClick = {},
+            selected = selected == null,
+            onClick = { onSelect(null) },
             modifier = Modifier.padding(start = 8.dp)
         )
     }
     items(items = Vibe.entries, key = { it.id }) { vibe ->
         Chip(
-            text = if (loading == vibe) stringResource(R.string.vibe_generating) else vibe.displayName(),
-            selected = loading == vibe,
-            isDimmed = loading != null && loading != vibe,
-            onClick = { if (loading == null) onClick(vibe) },
+            text = vibe.displayName(),
+            selected = selected == vibe,
+            onClick = { onSelect(if (selected == vibe) null else vibe) },
             modifier = Modifier.padding(start = 8.dp)
         )
     }
@@ -61,17 +58,15 @@ private fun Chip(
     text: String,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    isDimmed: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     val (colorPalette, typography) = LocalAppearance.current
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .height(34.dp)
-            .alpha(if (isDimmed) 0.4f else 1f)
-            .clip(17.dp.roundedShape)
+            .height(36.dp)
+            .clip(18.dp.roundedShape)
             .background(if (selected) Color(0xFF1ED760) else colorPalette.background2)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp)

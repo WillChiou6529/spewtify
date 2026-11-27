@@ -22,9 +22,9 @@
     <string name="songs">歌曲</string>
     <string name="playlists">播放清單</string>
     <string name="albums">專輯</string>
-    <string name="artists">藝術家</string>
+    <string name="artists">藝人</string>
     <string name="singles">單曲</string>
-    <string name="favorites">收藏</string>
+    <string name="favorites">已按讚的歌曲</string>
     <string name="offline">離線</string>
     <string name="history">歷史</string>
     <string name="overview">概覽</string>
@@ -95,8 +95,8 @@
     <string name="moods_and_genres">心情和型別</string>
     <string name="new_released_albums">新發布的專輯</string>
     <string name="more">更多</string>
-    <string name="artist_has_no_albums">此藝術家尚未釋出專輯</string>
-    <string name="artist_has_no_singles">此藝術家尚未釋出單曲</string>
+    <string name="artist_has_no_albums">這位藝人還沒有專輯</string>
+    <string name="artist_has_no_singles">這位藝人還沒有單曲</string>
     <string name="error_message">發生錯誤</string>
     <string name="error_local_music_deleted">此本地音樂檔案不再存在</string>
     <string name="error_network">發生網路錯誤</string>
@@ -119,7 +119,7 @@
     <string name="no_file_chooser_installed">找不到建立文件的應用程式</string>
     <string name="no_battery_optimization_settings_found">找不到電池最佳化設定，請手動將 ViTune 加入白名單</string>
     <string name="related_albums">相關專輯</string>
-    <string name="similar_artists">相似藝術家</string>
+    <string name="similar_artists">相似藝人</string>
     <string name="recommended_playlists">你可能喜歡的播放清單</string>
     <string name="format_subscribers">%s 訂閱者</string>
     <string name="enter_lyrics">輸入歌詞</string>
@@ -394,10 +394,6 @@
     </plurals>
     <string name="all_tags">全部</string>
     <string name="daily_mixes">為你打造</string>
-    <string name="greeting_morning">早安</string>
-    <string name="greeting_afternoon">午安</string>
-    <string name="greeting_evening">晚安</string>
-    <string name="home_recommended_songs">推薦歌曲</string>
     <string name="nav_home">首頁</string>
     <string name="nav_search">搜尋</string>
     <string name="nav_library">你的音樂庫</string>
@@ -430,17 +426,13 @@
     <string name="tag_section_situations">情境</string>
     <string name="tag_section_genres">曲風</string>
     <string name="tag_section_moods">心情</string>
-    <string name="vibe_title">現在想聽什麼？</string>
     <string name="vibe_all">所有</string>
-    <string name="vibe_moods">今天的心情</string>
-    <string name="vibe_situations">我正在…</string>
-    <string name="vibe_generating">產生中…</string>
     <string name="vibe_empty">找不到適合的歌，請確認網路後再試一次</string>
     <string name="vibe_offline">連不上網路，先播你收藏裡符合的歌</string>
     <string name="format_daily_mix">%1$s Mix</string>
     <string name="format_daily_mix_songs">%1$d 首</string>
     <string name="genre_tags">曲風與心情分類</string>
-    <string name="genre_tags_description">收藏的歌會依 YouTube Music 官方曲風／心情歌單自動貼標籤；填了 Last.fm API key，查不到的歌會再問 Last.fm。</string>
+    <string name="genre_tags_description">收藏的歌會依 YouTube Music 官方曲風／心情播放清單自動貼標籤；填了 Last.fm API key，查不到的歌會再問 Last.fm。</string>
     <string name="genre_tags_run_now">立即分類新收藏</string>
     <string name="format_genre_tags_progress">已分類 %1$d／%2$d 首收藏</string>
     <string name="genre_tags_retag_all">全部重新分類</string>
@@ -450,4 +442,19 @@
     <string name="lastfm_api_key_hint">貼上 last.fm/api 申請到的 key（選填）</string>
     <string name="lastfm_api_key_empty">未設定：只用 YouTube Music 的資料分類</string>
     <string name="lastfm_api_key_set">已設定：YouTube 分不出來的歌會再查 Last.fm</string>
+    <string name="back">返回</string>
+    <string name="a11y_remove">移除</string>
+    <string name="a11y_unlike">從已按讚的歌曲移除</string>
+    <string name="a11y_settings">設定</string>
+    <string name="recent_searches">最近搜尋</string>
+    <string name="search_for_format">搜尋「%1$s」</string>
+    <string name="library_empty">還沒有任何收藏，去搜尋找喜歡的音樂吧</string>
+    <string name="library_empty_artists">還沒有收藏的藝人</string>
+    <string name="library_empty_albums">還沒有收藏的專輯</string>
+    <string name="charts_failed">無法載入排行榜</string>
+    <string name="radio_failed">這個電台暫時開不了，請稍後再試</string>
+    <string name="vibe_play_hint">按播放：收藏裡的歌混合新歌</string>
+    <string name="vibe_from_liked">你收藏裡的</string>
+    <string name="vibe_official_playlists">相關播放清單</string>
+    <string name="vibe_nothing">這個分類暫時找不到歌</string>
 </resources>

@@ -47,7 +47,6 @@ import app.vitune.android.ui.components.themed.TextFieldDialog
 import app.vitune.android.ui.components.themed.VerticalDivider
 import app.vitune.android.ui.items.PlaylistItem
 import app.vitune.android.ui.screens.Route
-import app.vitune.android.ui.screens.builtinplaylist.BuiltInPlaylistScreen
 import app.vitune.android.ui.screens.settings.SettingsEntryGroupText
 import app.vitune.android.ui.screens.settings.SettingsGroupSpacer
 import app.vitune.compose.persist.persist
@@ -110,8 +109,6 @@ fun HomePlaylists(
     )
 
     val lazyGridState = rememberLazyGridState()
-
-    val builtInPlaylists by BuiltInPlaylistScreen.shownPlaylistsAsState()
 
     Box {
         LazyVerticalGrid(
@@ -179,7 +176,7 @@ fun HomePlaylists(
 
             // TODO: clean up (also in BuiltInPlaylistScreen): icon etc. could live in BuiltInPlaylist (cleans up duplicate code mess)
 
-            if (BuiltInPlaylist.Favorites in builtInPlaylists) item(key = "favorites") {
+            item(key = "favorites") {
                 PlaylistItem(
                     icon = R.drawable.heart,
                     colorTint = colorPalette.red,
@@ -193,7 +190,7 @@ fun HomePlaylists(
                 )
             }
 
-            if (BuiltInPlaylist.Offline in builtInPlaylists) item(key = "offline") {
+            item(key = "offline") {
                 PlaylistItem(
                     icon = R.drawable.airplane,
                     colorTint = colorPalette.blue,
@@ -207,7 +204,7 @@ fun HomePlaylists(
                 )
             }
 
-            if (BuiltInPlaylist.Top in builtInPlaylists) item(key = "top") {
+            item(key = "top") {
                 PlaylistItem(
                     icon = R.drawable.trending,
                     colorTint = colorPalette.red,
@@ -224,7 +221,7 @@ fun HomePlaylists(
                 )
             }
 
-            if (BuiltInPlaylist.History in builtInPlaylists) item(key = "history") {
+            item(key = "history") {
                 PlaylistItem(
                     icon = R.drawable.history,
                     colorTint = colorPalette.textDisabled,

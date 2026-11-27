@@ -32,7 +32,6 @@ import app.vitune.android.ui.components.themed.Attribution
 import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import app.vitune.android.ui.components.themed.LayoutWithAdaptiveThumbnail
 import app.vitune.android.ui.components.themed.NonQueuedMediaItemMenu
-import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.TextPlaceholder
 import app.vitune.android.ui.items.AlbumItem
 import app.vitune.android.ui.items.AlbumItemPlaceholder
@@ -71,7 +70,9 @@ fun ArtistOverview(
     onAlbumClick: (String) -> Unit,
     thumbnailContent: @Composable () -> Unit,
     headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 線上資料還沒載入時先用資料庫裡的大頭照，版面才不會在載入完成時跳動
+    placeholderHeroUrl: String? = null
 ) = LayoutWithAdaptiveThumbnail(
     thumbnailContent = thumbnailContent,
     modifier = modifier
@@ -99,13 +100,16 @@ fun ArtistOverview(
                 )
         ) {
             // Spewtify：Spotify 藝人頁——滿版大頭照（下緣漸暗）→ 名字與操作 → 隨機＋綠色播放鍵
-            val heroUrl = youtubeArtistPage?.thumbnail?.url
-            if (heroUrl != null && !isLandscape) Box(
+            val heroUrl = youtubeArtistPage?.thumbnail?.url ?: placeholderHeroUrl
+            // 線上藝人載入中也先留 300dp 的位置（本機藝人沒有線上頁面，沒有照片時才用圓形縮圖）
+            val showHero = !isLandscape && (heroUrl != null || youtubeArtistPage == null)
+            if (showHero) Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp)
+                    .background(colorPalette.background1)
             ) {
-                AsyncImage(
+                if (heroUrl != null) AsyncImage(
                     model = heroUrl.thumbnail(720),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
@@ -125,15 +129,6 @@ fun ArtistOverview(
 
             Box(modifier = Modifier.padding(endPaddingValues)) {
                 headerContent {
-                    youtubeArtistPage?.shuffleEndpoint?.let { endpoint ->
-                        SecondaryTextButton(
-                            text = stringResource(R.string.shuffle),
-                            onClick = {
-                                binder?.stopRadio()
-                                binder?.playRadio(endpoint)
-                            }
-                        )
-                    }
                     youtubeArtistPage?.subscribersCountText?.let { subscribers ->
                         BasicText(
                             text = stringResource(R.string.format_subscribers, subscribers),
@@ -144,10 +139,11 @@ fun ArtistOverview(
             }
 
             // 沒有線上大頭照（本機藝人）才用原本的圓形縮圖
-            if (heroUrl == null && !isLandscape) thumbnailContent()
+            if (!showHero && !isLandscape) thumbnailContent()
 
             SpotifyPlayRow(
                 enabled = youtubeArtistPage != null,
+                shuffleEnabled = youtubeArtistPage?.shuffleEndpoint != null,
                 onShuffle = {
                     youtubeArtistPage?.shuffleEndpoint?.let { endpoint ->
                         binder?.stopRadio()
