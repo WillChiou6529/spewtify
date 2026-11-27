@@ -81,7 +81,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 發佈說明＝commit 說明（App 內「有新版本」對話框會顯示這段）＋下載網址
+          msg="$(git log -1 --pretty=%B)"
+          notes="$(printf '%s\n\n自動建置：%s。手機下載：https://github.com/%s/releases/latest/download/Spewtify.apk' "$msg" "${GITHUB_SHA::7}" "$GITHUB_REPOSITORY")"
           gh release create "v$SPEWTIFY_VERSION" Spewtify.apk \
             --title "Spewtify $SPEWTIFY_VERSION" \
-            --notes "自動建置：${GITHUB_SHA::7}。手機下載：https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/Spewtify.apk" \
+            --notes "$notes" \
             --latest

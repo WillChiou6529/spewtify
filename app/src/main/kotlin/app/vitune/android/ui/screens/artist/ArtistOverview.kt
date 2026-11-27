@@ -155,11 +155,14 @@ fun ArtistOverview(
                     }
                 },
                 onPlay = {
-                    // 播熱門歌曲；沒有就開藝人電台
+                    // 先播熱門歌曲，後面接藝人電台（像 Spotify 不會放完幾首就停）；沒有熱門歌曲就直接開電台
                     val top = youtubeArtistPage?.songs.orEmpty()
+                    val radio = youtubeArtistPage?.radioEndpoint
                     binder?.stopRadio()
-                    if (top.isNotEmpty()) binder?.player?.forcePlayFromBeginning(top.map { it.asMediaItem })
-                    else youtubeArtistPage?.radioEndpoint?.let { binder?.playRadio(it) }
+                    if (top.isNotEmpty()) {
+                        binder?.player?.forcePlayFromBeginning(top.map { it.asMediaItem })
+                        radio?.let { binder?.setupRadio(it) }
+                    } else radio?.let { binder?.playRadio(it) }
                 }
             )
 

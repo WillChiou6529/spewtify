@@ -61,12 +61,17 @@ object SongTagger {
 
     suspend fun run(context: Context): Outcome? = withContext(Dispatchers.IO) {
         val upgrade = DataPreferences.tagRulesVersion < RULES_VERSION
-        // 「全部重新分類」只重置一次：重置＋重抓索引成功就清旗標，之後被中斷重試會接著做，不會每次從頭來
+        // 「全部重新分類」只重置一次：新索引抓成功才重置＋清旗標，之後被中斷重試會接著做，不會每次從頭來
         val reset = upgrade || DataPreferences.tagResetPending
-        if (reset) Database.resetTagStates()
 
         val index = YtTagIndex.load(context, forceRefresh = reset)
-        if (reset && index != null) {
+        if (reset) {
+            // 新索引沒抓到：先不重置（舊分類照用），稍後重試；不要用舊索引或只靠 Last.fm 假裝重做完
+            if (index == null) {
+                Log.w(TAG, "重新分類要的新索引抓不到，稍後重試")
+                return@withContext null
+            }
+            Database.resetTagStates()
             DataPreferences.tagRulesVersion = RULES_VERSION
             DataPreferences.tagResetPending = false
         }
@@ -240,11 +245,11 @@ class SongTagWorker(context: Context, params: WorkerParameters) : CoroutineWorke
          * 設定頁按鈕。force = true：清掉狀態、重抓官方索引、全部重新分類（手動標籤保留），會取代正在跑的分類；
          * force = false：只補分類，已經有分類在跑（包括「全部重新分類」）就不打斷它。
          */
-        fun runNow(context: Context, force: Boolean) = runCatching {
+        fun runNow(context: Context, force: Boolean, replace: Boolean = force) = runCatching {
             if (force) DataPreferences.tagResetPending = true
             WorkManager.getInstance(context).enqueueUniqueWork(
                 NOW,
-                if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
+                if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,
                 OneTimeWorkRequestBuilder<SongTagWorker>().setConstraints(constraints).build()
             )
         }.onFailure { Log.w(TAG, "啟動分類失敗", it) }
@@ -253,7 +258,9 @@ class SongTagWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         fun onLastFmKeySet(context: Context) = query {
             // 在資料庫執行緒跑（設定頁是在主執行緒呼叫），清完再排工作，避免 Worker 先跑到舊狀態
             catching { Database.resetStatesWithoutLastFm() }.onFailure { Log.w(TAG, "重置 Last.fm 狀態失敗", it) }
-            runNow(context, force = false)
+            // REPLACE：正在跑的那次在開始時讀到的是舊的空 key，會把剛清掉的狀態又寫回「沒查 Last.fm」
+            // （「全部重新分類」的旗標還在的話，新的那次會接著重做，不會丟掉）
+            runNow(context, force = false, replace = true)
         }
     }
 }

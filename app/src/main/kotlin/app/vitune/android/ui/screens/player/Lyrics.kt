@@ -132,37 +132,46 @@ internal suspend fun fetchLyrics(
         else it
     }
 
+    // Spewtify：有來源連不上（沒網路、逾時）就不能斷定「沒有歌詞」——那種情況存 null（＝還沒查），下次再抓；
+    // 全部來源都回應了卻找不到，才存成空字串（＝確定沒有，不再抓）
+    var unreachable = false
+    fun <T> Result<T>?.orUnreachable(): T? =
+        if (this == null || isFailure) {
+            unreachable = true
+            null
+        } else getOrNull()
+
     val fixed = current?.fixed ?: Innertube
         .lyrics(NextBody(videoId = mediaId))
-        ?.getOrNull()
+        .orUnreachable()
         ?: LrcLib.bestLyrics(
             artist = artist,
             title = title,
             duration = durationMs.milliseconds,
             album = album,
             synced = false
-        )?.map { it?.text }?.getOrNull()
+        )?.map { it?.text }.orUnreachable()
 
     val synced = current?.synced ?: LrcLib.bestLyrics(
         artist = artist,
         title = title,
         duration = durationMs.milliseconds,
         album = album
-    )?.map { it?.text }?.getOrNull() ?: LrcLib.bestLyrics(
+    )?.map { it?.text }.orUnreachable() ?: LrcLib.bestLyrics(
         artist = artist,
         title = title.split("(")[0].trim(),
         duration = durationMs.milliseconds,
         album = album
-    )?.map { it?.text }?.getOrNull() ?: KuGou.lyrics(
+    )?.map { it?.text }.orUnreachable() ?: KuGou.lyrics(
         artist = artist,
         title = title,
         duration = durationMs / 1000
-    )?.map { it?.value }?.getOrNull()
+    )?.map { it?.value }.orUnreachable()
 
     return Lyrics(
         songId = mediaId,
-        fixed = fixed.orEmpty(),
-        synced = synced.orEmpty()
+        fixed = fixed ?: if (unreachable) null else "",
+        synced = synced ?: if (unreachable) null else ""
     )
 }
 
@@ -226,6 +235,8 @@ fun Lyrics(
     }
 
     LaunchedEffect(mediaId, shouldShowSynchronizedLyrics) {
+        // 每次打開只抓一次：連不上時存的是 null（下次再抓），不能因為存檔觸發的更新又馬上重抓、一直打網路
+        var attempted = false
         runCatching {
             withContext(Dispatchers.IO) {
                 Database
@@ -234,7 +245,7 @@ fun Lyrics(
                     .cancellable()
                     .collect { currentLyrics ->
                         if (
-                            !shouldUpdateLyrics ||
+                            !shouldUpdateLyrics || attempted ||
                             (currentLyrics?.fixed != null && currentLyrics.synced != null)
                         ) lyrics = currentLyrics
                         else {
@@ -250,6 +261,7 @@ fun Lyrics(
 
                             lyrics = null
                             error = false
+                            attempted = true
 
                             fetchLyrics(
                                 mediaId = mediaId,
@@ -258,6 +270,7 @@ fun Lyrics(
                                 durationMs = duration
                             ).also {
                                 this@withContext.ensureActive()
+                                lyrics = it
 
                                 transaction {
                                     runCatching {
@@ -268,9 +281,10 @@ fun Lyrics(
                             }
                         }
 
-                        error =
-                            (shouldShowSynchronizedLyrics && lyrics?.synced?.isBlank() == true) ||
-                            (!shouldShowSynchronizedLyrics && lyrics?.fixed?.isBlank() == true)
+                        // null＝連不上沒抓到，也要顯示錯誤（不然會一直轉圈）
+                        error = lyrics?.let {
+                            if (shouldShowSynchronizedLyrics) it.synced.isNullOrBlank() else it.fixed.isNullOrBlank()
+                        } == true
                     }
             }
         }.exceptionOrNull()?.let {

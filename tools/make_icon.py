@@ -1,79 +1,71 @@
-"""產生 Spewtify 圖示：綠色圓底＋音波條排成的 W。
+"""產生 Spewtify 圖示（v2，2026-11-27 使用者指定）：黑底＋綠色圓環＋中間 5 根圓角聲波條。
 用法：python make_icon.py <res 資料夾> [--preview out.png]
-座標系統＝自適應圖示 108x108（安全區半徑 33）。"""
+座標取自使用者給的 843x845 圖（圓心 421,423），換算到自適應圖示 108x108。"""
 import sys, os
 from PIL import Image, ImageDraw
 
-GREEN = "#1FD16A"
-DARK = "#121212"
-CX = CY = 54.0
-R = 31.0
-# W 折線（正規化，y 向下）：左上 → 左下 → 中間 → 右下 → 右上
-W_PTS = [(-1, -1), (-0.5, 1), (0, -0.15), (0.5, 1), (1, -1)]
-N_BARS = 9
-HALF_W, AMP = 18.5, 11.0
-BAR_HALF = 4.2     # 每根音波條半長
-BAR_WIDTH = 3.9    # 音波條粗細（圓頭）
+GREEN = "#1BC250"
+DARK = "#070807"
+SRC_CX, SRC_CY = 421.0, 423.0
+RING_OUTER, RING_W = 339.0, 36.0          # 原圖像素
+BARS = [(205, 267, 429, 501), (297, 359, 327, 539), (389, 452, 235, 610),
+        (483, 545, 386, 539), (575, 638, 437, 497)]  # x1, x2, y1, y2（原圖像素）
+BAR_CORNER = 14.0
+FG_RING_OUTER = 29.0   # 自適應圖示裡圓環外半徑（安全區 33；圓形遮罩看得到 36）
 
 
-def w_y(xn):
-    for (x0, y0), (x1, y1) in zip(W_PTS, W_PTS[1:]):
-        if x0 <= xn <= x1:
-            return y0 + (y1 - y0) * (xn - x0) / (x1 - x0)
-    raise ValueError(xn)
+def geom(view=108.0, outer=FG_RING_OUTER):
+    """回傳 (圓環中線半徑, 圓環粗, 聲波條[(x1,y1,x2,y2)], 圓角)，座標在 view x view 裡。"""
+    s = outer / RING_OUTER
+    c = view / 2
+    tx = lambda x: c + (x - SRC_CX) * s
+    ty = lambda y: c + (y - SRC_CY) * s
+    bars = [(tx(x1), ty(y1), tx(x2 + 1), ty(y2 + 1)) for x1, x2, y1, y2 in BARS]
+    return (RING_OUTER - RING_W / 2) * s, RING_W * s, bars, BAR_CORNER * s
 
 
-def bars():
-    out = []
-    for i in range(N_BARS):
-        xn = -1 + 2 * i / (N_BARS - 1)
-        x = CX + xn * HALF_W
-        y = CY + w_y(xn) * AMP
-        # 越靠兩端越長，像音量包絡
-        half = BAR_HALF * (1.25 if i in (0, N_BARS - 1) else 1.0)
-        out.append((x, y - half, y + half))
-    return out
+def rrect_path(x1, y1, x2, y2, r):
+    return (f"M{x1 + r:.2f},{y1:.2f}H{x2 - r:.2f}A{r:.2f},{r:.2f} 0 0 1 {x2:.2f},{y1 + r:.2f}"
+            f"V{y2 - r:.2f}A{r:.2f},{r:.2f} 0 0 1 {x2 - r:.2f},{y2:.2f}"
+            f"H{x1 + r:.2f}A{r:.2f},{r:.2f} 0 0 1 {x1:.2f},{y2 - r:.2f}"
+            f"V{y1 + r:.2f}A{r:.2f},{r:.2f} 0 0 1 {x1 + r:.2f},{y1:.2f}Z")
 
 
-def vector_xml(with_circle, bar_color, circle_color=GREEN):
+def vector_xml(color, view=108.0, outer=FG_RING_OUTER, size_dp=108):
+    rm, rw, bars, rc = geom(view, outer)
+    c = view / 2
     lines = ['<?xml version="1.0" encoding="utf-8"?>',
-             '<!-- Spewtify 圖示：由 make_icon.py 產生 -->',
+             '<!-- Spewtify 圖示：由 tools/make_icon.py 產生，不要手改 -->',
              '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
-             '    android:width="108dp"', '    android:height="108dp"',
-             '    android:viewportWidth="108"', '    android:viewportHeight="108">']
-    if with_circle:
-        lines.append(f'    <path android:fillColor="{circle_color}" android:pathData="'
-                     f'M{CX - R},{CY}a{R},{R} 0 1,0 {2 * R},0a{R},{R} 0 1,0 {-2 * R},0z" />')
-    for x, y1, y2 in bars():
-        lines.append(f'    <path android:strokeColor="{bar_color}" android:strokeWidth="{BAR_WIDTH}" '
-                     f'android:strokeLineCap="round" android:pathData="M{x:.2f},{y1:.2f}L{x:.2f},{y2:.2f}" />')
+             f'    android:width="{size_dp}dp"', f'    android:height="{size_dp}dp"',
+             f'    android:viewportWidth="{view:g}"', f'    android:viewportHeight="{view:g}">',
+             f'    <path android:strokeColor="{color}" android:strokeWidth="{rw:.2f}" android:fillColor="#00000000" '
+             f'android:pathData="M{c - rm:.2f},{c:.2f}a{rm:.2f},{rm:.2f} 0 1,0 {2 * rm:.2f},0a{rm:.2f},{rm:.2f} 0 1,0 {-2 * rm:.2f},0" />']
+    for b in bars:
+        lines.append(f'    <path android:fillColor="{color}" android:pathData="{rrect_path(*b, rc)}" />')
     lines.append('</vector>')
     return "\n".join(lines) + "\n"
 
 
 def render(size, shape):
-    """shape: square＝舊版方形圖示（深色圓角方底）、round＝圓形圖示、preview＝大預覽。"""
+    """shape: square＝舊版方形圖示、round＝圓形圖示、preview＝滿版預覽。"""
     ss = 4
     S = size * ss
     img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    # 舊版圖示沒有遮罩，把 108 的內容縮到四周留白
-    k = S / 108.0
     if shape == "square":
-        d.rounded_rectangle([2 * k, 2 * k, 106 * k, 106 * k], radius=22 * k, fill=DARK)
+        d.rounded_rectangle([S * 0.02, S * 0.02, S * 0.98, S * 0.98], radius=S * 0.2, fill=DARK)
     elif shape == "round":
-        d.ellipse([2 * k, 2 * k, 106 * k, 106 * k], fill=DARK)
+        d.ellipse([S * 0.02, S * 0.02, S * 0.98, S * 0.98], fill=DARK)
     else:
         d.rectangle([0, 0, S, S], fill=DARK)
-    scale = 1.45 if shape in ("square", "round") else 1.0   # 舊版圖示讓綠圓放大一點
-    def t(v, c=54.0):
-        return (c + (v - c) * scale) * k
-    d.ellipse([t(CX - R), t(CY - R), t(CX + R), t(CY + R)], fill=GREEN)
-    bw = BAR_WIDTH * scale * k
-    for x, y1, y2 in bars():
-        d.line([t(x), t(y1), t(x), t(y2)], fill=DARK, width=round(bw))
-        for yy in (y1, y2):
-            d.ellipse([t(x) - bw / 2, t(yy) - bw / 2, t(x) + bw / 2, t(yy) + bw / 2], fill=DARK)
+    # 舊版圖示沒有遮罩：內容放大到跟原圖差不多的比例（圓環約佔 80%）
+    outer = S * 0.40 if shape != "preview" else S * 0.402
+    rm, rw, bars, rc = geom(S, outer)
+    c = S / 2
+    d.ellipse([c - rm - rw / 2, c - rm - rw / 2, c + rm + rw / 2, c + rm + rw / 2], outline=GREEN, width=round(rw))
+    for x1, y1, x2, y2 in bars:
+        d.rounded_rectangle([x1, y1, x2, y2], radius=rc, fill=GREEN)
     return img.resize((size, size), Image.LANCZOS)
 
 
@@ -83,14 +75,20 @@ def main():
         out = sys.argv[sys.argv.index("--preview") + 1]
         row = Image.new("RGBA", (3 * 260, 260), (40, 40, 40, 255))
         for i, sh in enumerate(["preview", "square", "round"]):
-            row.paste(render(240, sh), (10 + i * 260, 10), render(240, sh))
+            im = render(240, sh)
+            row.paste(im, (10 + i * 260, 10), im)
         row.save(out)
         print("preview", out)
         return
-    with open(os.path.join(res, "drawable", "ic_launcher_foreground.xml"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(vector_xml(True, DARK))
-    with open(os.path.join(res, "drawable", "ic_launcher_monochrome.xml"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(vector_xml(False, "#FFFFFF"))
+
+    def write(name, text):
+        with open(os.path.join(res, "drawable", name), "w", encoding="utf-8", newline="\n") as f:
+            f.write(text)
+
+    write("ic_launcher_foreground.xml", vector_xml(GREEN))
+    write("ic_launcher_monochrome.xml", vector_xml("#FFFFFF"))
+    # 通知列小圖示：系統會自己上色，只看形狀；圓環放大到幾乎滿版
+    write("app_icon.xml", vector_xml("#FF000000", view=24.0, outer=11.5, size_dp=24))
     for dpi, px in {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}.items():
         render(px, "square").save(os.path.join(res, f"mipmap-{dpi}", "ic_launcher.webp"), "WEBP", lossless=True)
         render(px, "round").save(os.path.join(res, f"mipmap-{dpi}", "ic_launcher_round.webp"), "WEBP", lossless=True)

@@ -166,13 +166,16 @@ fun LyricsPreviewCard(
     var lyrics by remember(mediaId) { mutableStateOf<Lyrics?>(null) }
 
     LaunchedEffect(mediaId) {
+        // 這首歌這次只抓一次：連不上時存 null（下次再抓），存檔觸發的更新不會又馬上重抓
+        var attempted = false
         Database
             .lyrics(mediaId)
             .distinctUntilChanged()
             .collect { current ->
                 lyrics = current
-                // 兩種歌詞都抓過（找不到會存成空字串）就不再抓
-                if (current?.fixed != null && current.synced != null) return@collect
+                // 兩種歌詞都抓過（確定找不到會存成空字串）就不再抓
+                if (attempted || (current?.fixed != null && current.synced != null)) return@collect
+                attempted = true
 
                 var duration = currentDurationProvider()
                 while (duration == C.TIME_UNSET) {

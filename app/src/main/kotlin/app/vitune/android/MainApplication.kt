@@ -69,6 +69,7 @@ import app.vitune.android.service.PlayerService
 import app.vitune.android.service.ServiceNotifications
 import app.vitune.android.service.downloadState
 import app.vitune.android.ui.components.BottomSheetMenu
+import app.vitune.android.updater.AutoUpdateCheck
 import app.vitune.android.ui.components.rememberBottomSheetState
 import app.vitune.android.ui.components.themed.LinearProgressIndicator
 import app.vitune.android.ui.components.themed.SpewtifyBottomBar
@@ -357,6 +358,9 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                     BottomSheetMenu(
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
+
+                    // Spewtify：開 App 自動檢查新版（最多每 6 小時），有新版跳出「立即更新」
+                    AutoUpdateCheck()
                 }
             }
 

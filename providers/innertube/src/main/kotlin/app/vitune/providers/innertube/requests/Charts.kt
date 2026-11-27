@@ -44,15 +44,21 @@ suspend fun Innertube.charts(country: String) = runCatchingCancellable {
         .orEmpty()
 
     val playlistShelves = shelves
-        .map { shelf -> shelf.contents.orEmpty().mapNotNull { it.musicTwoRowItemRenderer?.toItem() as? Innertube.PlaylistItem } }
+        .map { shelf ->
+            shelf.contents.orEmpty()
+                .mapNotNull { it.musicTwoRowItemRenderer?.toItem() as? Innertube.PlaylistItem }
+                .distinctBy { it.key }
+        }
         .filter { it.isNotEmpty() }
 
     ChartsPage(
         playlists = playlistShelves.firstOrNull().orEmpty(),
-        genrePlaylists = playlistShelves.drop(1).flatten(),
+        genrePlaylists = playlistShelves.drop(1).flatten().distinctBy { it.key },
+        // 同一位藝人可能出現在好幾個區塊；清單用 key 當識別，重複會讓 LazyRow 當掉
         artists = shelves
             .flatMap { it.contents.orEmpty() }
             .mapNotNull { it.musicResponsiveListItemRenderer?.toChartArtist() }
+            .distinctBy { it.key }
     )
 }
 

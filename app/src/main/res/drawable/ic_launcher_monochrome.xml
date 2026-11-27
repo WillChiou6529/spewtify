@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Spewtify 圖示：由 make_icon.py 產生 -->
+<!-- Spewtify 圖示：由 tools/make_icon.py 產生，不要手改 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M35.50,37.75L35.50,48.25" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M40.12,49.80L40.12,58.20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M44.75,60.80L44.75,69.20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M49.38,54.47L49.38,62.88" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M54.00,48.15L54.00,56.55" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M58.62,54.47L58.62,62.88" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M63.25,60.80L63.25,69.20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M67.88,49.80L67.88,58.20" />
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.9" android:strokeLineCap="round" android:pathData="M72.50,37.75L72.50,48.25" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.08" android:fillColor="#00000000" android:pathData="M26.54,54.00a27.46,27.46 0 1,0 54.92,0a27.46,27.46 0 1,0 -54.92,0" />
+    <path android:fillColor="#FFFFFF" android:pathData="M36.72,54.51H39.71A1.20,1.20 0 0 1 40.91,55.71V59.56A1.20,1.20 0 0 1 39.71,60.76H36.72A1.20,1.20 0 0 1 35.52,59.56V55.71A1.20,1.20 0 0 1 36.72,54.51Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M44.59,45.79H47.58A1.20,1.20 0 0 1 48.78,46.99V62.81A1.20,1.20 0 0 1 47.58,64.01H44.59A1.20,1.20 0 0 1 43.39,62.81V46.99A1.20,1.20 0 0 1 44.59,45.79Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M52.46,37.92H55.54A1.20,1.20 0 0 1 56.74,39.12V68.88A1.20,1.20 0 0 1 55.54,70.08H52.46A1.20,1.20 0 0 1 51.26,68.88V39.12A1.20,1.20 0 0 1 52.46,37.92Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M60.50,50.83H63.50A1.20,1.20 0 0 1 64.69,52.03V62.81A1.20,1.20 0 0 1 63.50,64.01H60.50A1.20,1.20 0 0 1 59.30,62.81V52.03A1.20,1.20 0 0 1 60.50,50.83Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M68.37,55.20H71.45A1.20,1.20 0 0 1 72.65,56.40V59.22A1.20,1.20 0 0 1 71.45,60.42H68.37A1.20,1.20 0 0 1 67.17,59.22V56.40A1.20,1.20 0 0 1 68.37,55.20Z" />
 </vector>

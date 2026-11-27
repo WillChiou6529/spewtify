@@ -350,6 +350,14 @@
     <string name="current_version">You\'re currently running version v%1$s</string>
     <string name="error_github">An unknown error occurred while fetching data from GitHub</string>
     <string name="new_version_available">A new version is available</string>
+    <string name="update_now">Update now</string>
+    <string name="update_later">Later</string>
+    <string name="update_connecting">Connecting…</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_need_permission">Allow Spewtify to install apps on the screen that just opened, then come back and tap Retry</string>
+    <string name="update_failed">Download failed. Check your connection and try again</string>
+    <string name="update_installing">Opening the installer…</string>
+    <string name="retry">Retry</string>
     <string name="more_information">More information</string>
     <string name="up_to_date">You\'re currently up-to-date: no updates available</string>
     <string name="dynamic_thumbnails">Dynamic thumbnails</string>

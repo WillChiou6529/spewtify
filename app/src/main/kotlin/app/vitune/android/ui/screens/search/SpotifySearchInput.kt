@@ -68,6 +68,7 @@ import app.vitune.providers.innertube.requests.searchSuggestions
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.time.Duration.Companion.milliseconds
@@ -96,9 +97,11 @@ fun SpotifySearchInput(
         snapshotFlow { state.text }
             .distinctUntilChanged()
             .debounce(150.milliseconds)
-            .collect { q ->
+            // collectLatest：打新字就丟掉上一個還沒回來的請求，不會把舊字的建議塞回來
+            .collectLatest { q ->
                 suggestions = if (q.isEmpty()) emptyList()
-                else Innertube.searchSuggestions(SearchSuggestionsBody(input = q.toString()))?.getOrNull().orEmpty()
+                else Innertube.searchSuggestions(SearchSuggestionsBody(input = q.toString()))
+                    ?.getOrNull().orEmpty().distinct()
             }
     }
 

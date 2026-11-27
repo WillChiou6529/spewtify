@@ -1,6 +1,7 @@
 package app.vitune.android.tagging
 
 import android.content.Context
+import android.util.AtomicFile
 import android.util.Log
 import app.vitune.providers.innertube.Innertube
 import app.vitune.providers.innertube.models.bodies.BrowseBody
@@ -20,6 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.days
 import app.vitune.providers.innertube.models.Context as YtContext
 
@@ -64,8 +66,8 @@ data class YtTagIndex(
             withContext(Dispatchers.IO) {
                 val requestedAt = System.currentTimeMillis()
                 loadMutex.withLock {
-                    val file = File(context.filesDir, FILE)
-                    val cached = catching { json.decodeFromString(serializer(), file.readText()) }.getOrNull()
+                    val file = AtomicFile(File(context.filesDir, FILE))
+                    val cached = catching { json.decodeFromString(serializer(), file.readFully().decodeToString()) }.getOrNull()
                     val fresh = cached != null &&
                         System.currentTimeMillis() - cached.builtAt < TTL.inWholeMilliseconds
                     // 強制更新時，等鎖期間別人剛建好的也算數，不重建第二次
@@ -75,17 +77,12 @@ data class YtTagIndex(
                     val built = catching { build() }
                         .onFailure { Log.w(TAG, "建立索引失敗", it) }
                         .getOrNull()
-                    if (built == null) return@withLock cached
+                    // 強制重建失敗：回 null，讓呼叫端知道「沒有新索引」，不要拿舊索引假裝重做完了
+                    if (built == null) return@withLock if (forceRefresh) null else cached
 
-                    // 先寫暫存檔再改名，寫到一半被中斷也不會留下壞掉的快取
-                    catching {
-                        val tmp = File(context.filesDir, "$FILE.tmp")
-                        tmp.writeText(json.encodeToString(serializer(), built))
-                        if (!tmp.renameTo(file)) {
-                            file.delete()
-                            tmp.renameTo(file)
-                        }
-                    }.onFailure { Log.w(TAG, "索引存檔失敗", it) }
+                    // 寫到一半被中斷也不會留下壞掉的快取
+                    catching { writeAtomically(file, json.encodeToString(serializer(), built)) }
+                        .onFailure { Log.w(TAG, "索引存檔失敗", it) }
                     Log.i(TAG, "索引完成：${built.songs.size} 首歌、${built.artists.size} 位歌手")
                     built
                 }
@@ -115,6 +112,8 @@ data class YtTagIndex(
             val artistNames = HashMap<String, HashMap<String, Int>>()
             val mutex = Mutex()
             val semaphore = Semaphore(PARALLEL_REQUESTS)
+            val requests = AtomicInteger()
+            val failures = AtomicInteger()
 
             fun HashMap<String, HashMap<String, Int>>.bump(key: String, tagId: String) {
                 val counts = getOrPut(key) { HashMap() }
@@ -124,10 +123,14 @@ data class YtTagIndex(
             categories.map { (tag, endpoint) ->
                 async {
                     val browseId = endpoint.browseId ?: return@async
+                    requests.incrementAndGet()
                     val page = semaphore.withPermit {
                         Innertube.browse(BrowseBody(context = yt, browseId = browseId, params = endpoint.params))
                             ?.getOrNull()
-                    } ?: return@async
+                    } ?: run {
+                        failures.incrementAndGet()
+                        return@async
+                    }
 
                     page.items
                         .flatMap { it.items }
@@ -135,10 +138,14 @@ data class YtTagIndex(
                         .take(PLAYLISTS_PER_CATEGORY)
                         .forEach { playlist ->
                             val playlistId = playlist.info?.endpoint?.browseId ?: return@forEach
+                            requests.incrementAndGet()
                             val items = semaphore.withPermit {
                                 Innertube.playlistPage(BrowseBody(context = yt, browseId = playlistId))
                                     ?.getOrNull()?.songsPage?.items
-                            }.orEmpty()
+                            } ?: run {
+                                failures.incrementAndGet()
+                                emptyList()
+                            }
 
                             mutex.withLock {
                                 items.forEach { song ->
@@ -155,9 +162,13 @@ data class YtTagIndex(
                 }
             }.awaitAll()
 
+            // 網路中途斷掉、很多請求失敗：還是先用，但標成「快過期」，明天就重建，不要殘缺一整週
+            val partial = failures.get() * 10 > requests.get() * 3
+            if (partial) Log.w(TAG, "索引不完整：${failures.get()}/${requests.get()} 個請求失敗，明天重建")
+            val now = System.currentTimeMillis()
             if (songs.isEmpty()) null
             else YtTagIndex(
-                builtAt = System.currentTimeMillis(),
+                builtAt = if (partial) now - (TTL - 1.days).inWholeMilliseconds else now,
                 songs = songs.mapValues { it.value.toList() },
                 artists = artists,
                 artistNames = artistNames

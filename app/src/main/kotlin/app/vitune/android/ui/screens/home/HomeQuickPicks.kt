@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -33,6 +34,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import app.vitune.android.tagging.Vibe
 import app.vitune.android.tagging.VibePlaylist
@@ -47,7 +49,6 @@ import app.vitune.providers.innertube.models.bodies.BrowseBody
 import app.vitune.providers.innertube.requests.artistPage
 import app.vitune.android.utils.bold
 import androidx.compose.ui.unit.sp
-import app.vitune.android.charts.ChartCard
 import app.vitune.android.charts.ChartRegion
 import app.vitune.android.charts.Charts
 import androidx.compose.foundation.layout.Box
@@ -59,13 +60,13 @@ import app.vitune.android.tagging.tagDisplayName
 import app.vitune.android.utils.toast
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
-import app.vitune.android.tagging.DailyMix
 import app.vitune.android.tagging.DailyMixes
 import app.vitune.android.ui.components.themed.DailyMixRow
 import app.vitune.android.utils.forcePlayFromBeginning
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -126,22 +127,27 @@ fun QuickPicks(
     val windowInsets = LocalPlayerAwareWindowInsets.current
     val context = LocalContext.current
 
+    // 按「重試」＋1：重抓推薦頁、排行榜、Daily Mix
+    var retryKey by remember { mutableIntStateOf(0) }
+
     // Spewtify：「現在想聽什麼？」正在產生歌單的那個選項（null＝沒有）
     var loadingVibe by remember { mutableStateOf<Vibe?>(null) }
     var loadingRadio by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     // Spewtify：每日 Mix（一天產生一次，存在 filesDir/daily_mix.json）
-    val dailyMixes by produceState(initialValue = emptyList<DailyMix>()) {
+    // 初值用上次算好的（記憶體），切分頁回來不會先消失再出現、捲動位置不會被彈回上面
+    val dailyMixes by produceState(initialValue = DailyMixes.lastLoaded, retryKey) {
         value = DailyMixes.load(context.applicationContext)
     }
 
     // Spewtify：排行榜（台灣、全球、日韓美）與台灣熱門藝人，記憶體快取 1 小時
-    val chartCards by produceState(initialValue = emptyList<ChartCard>()) {
-        value = catching { Charts.homeCards() }.getOrDefault(emptyList())
+    val chartCards by produceState(initialValue = Charts.lastHomeCards, retryKey) {
+        catching { Charts.homeCards() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { value = it }
     }
-    val chartArtists by produceState(initialValue = emptyList<Innertube.ArtistItem>()) {
-        value = catching { Charts.page(ChartRegion.TW)?.artists.orEmpty().take(20) }.getOrDefault(emptyList())
+    val chartArtists by produceState(initialValue = Charts.peek(ChartRegion.TW)?.artists.orEmpty().take(20), retryKey) {
+        catching { Charts.page(ChartRegion.TW)?.artists.orEmpty().take(20) }.getOrNull()
+            ?.takeIf { it.isNotEmpty() }?.let { value = it }
     }
 
     // Spewtify：Spotify 式首頁捷徑（收藏、Daily Mix、自己的播放清單、最近聽過的歌）
@@ -212,7 +218,7 @@ fun QuickPicks(
         else DataPreferences.cachedQuickPicks = Innertube.RelatedPage()
     }
 
-    LaunchedEffect(DataPreferences.quickPicksSource) {
+    LaunchedEffect(DataPreferences.quickPicksSource, retryKey) {
         if (
             DataPreferences.shouldCacheQuickPicks && !DataPreferences.cachedQuickPicks.let {
                 it.albums.isNullOrEmpty() &&
@@ -331,7 +337,9 @@ fun QuickPicks(
 
             ShortcutGrid(shortcuts = shortcuts, contentPadding = endPaddingValues)
 
-            relatedPageResult?.getOrNull()?.let { related ->
+            // 推薦頁（開始聆聽、熱門專輯、相似藝人、推薦播放清單）失敗時，排行榜／熱門藝人／電台／Daily Mix 照樣顯示
+            val related = relatedPageResult?.getOrNull()
+            if (related != null) {
                 BasicText(
                     text = stringResource(R.string.home_start_listening_subtitle),
                     style = typography.xs.secondary,
@@ -457,6 +465,45 @@ fun QuickPicks(
                         contentPadding = endPaddingValues
                     )
                 }
+            } else if (relatedPageResult?.exceptionOrNull() != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(all = 16.dp)
+                ) {
+                    BasicText(
+                        text = stringResource(R.string.error_message),
+                        style = typography.s.secondary.center
+                    )
+                    BasicText(
+                        text = stringResource(R.string.retry),
+                        style = typography.s.semiBold.copy(color = Color.Black),
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1ED760))
+                            .clickable {
+                                relatedPageResult = null
+                                retryKey++
+                            }
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                    )
+                }
+            } else ShimmerHost {
+                repeat(4) {
+                    SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
+                }
+                TextPlaceholder(modifier = sectionTextModifier)
+                Row {
+                    repeat(2) {
+                        AlbumItemPlaceholder(
+                            thumbnailSize = Dimensions.thumbnails.album,
+                            alternative = true
+                        )
+                    }
+                }
+            }
 
                 if (chartCards.isNotEmpty()) {
                     BasicText(
@@ -532,7 +579,7 @@ fun QuickPicks(
                     )
                 }
 
-                related.artists?.let { artists ->
+                related?.artists?.takeIf { it.isNotEmpty() }?.let { artists ->
                     BasicText(
                         text = stringResource(R.string.similar_artists),
                         style = sectionTitleStyle,
@@ -554,13 +601,11 @@ fun QuickPicks(
                     }
                 }
 
-                related.playlists?.let { playlists ->
+                related?.playlists?.takeIf { it.isNotEmpty() }?.let { playlists ->
                     BasicText(
                         text = stringResource(R.string.recommended_playlists),
                         style = sectionTitleStyle,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 24.dp, bottom = 8.dp)
+                        modifier = sectionTextModifier
                     )
 
                     LazyRow(contentPadding = endPaddingValues) {
@@ -578,53 +623,7 @@ fun QuickPicks(
                     }
                 }
 
-                Unit
-            } ?: relatedPageResult?.exceptionOrNull()?.let {
-                BasicText(
-                    text = stringResource(R.string.error_message),
-                    style = typography.s.secondary.center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(all = 16.dp)
-                )
-            } ?: ShimmerHost {
-                repeat(4) {
-                    SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        AlbumItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
-                        )
-                    }
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        ArtistItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
-                        )
-                    }
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        PlaylistItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         FloatingActionsContainerWithScrollToTop(

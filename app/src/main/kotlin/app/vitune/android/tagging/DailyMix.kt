@@ -1,6 +1,7 @@
 package app.vitune.android.tagging
 
 import android.content.Context
+import android.util.AtomicFile
 import android.util.Log
 import app.vitune.android.Database
 import app.vitune.android.models.Song
@@ -51,7 +52,12 @@ data class DailyMix(
 )
 
 @Serializable
-private data class DailyMixCache(val day: Long, val mixes: List<DailyMix>)
+private data class DailyMixCache(
+    val day: Long,
+    val mixes: List<DailyMix>,
+    /** 收藏分類的指紋：收藏／手動改分類讓分類數量變了就重算（舊快取沒有這欄＝0，會重算一次） */
+    val fingerprint: Int = 0
+)
 
 /**
  * 首頁 Daily Mix（Spotify 式）：依收藏的曲風分群，每天產生一次。
@@ -68,6 +74,11 @@ object DailyMixes {
     private const val SEEDS_PER_MIX = 2
     private val json = Json { ignoreUnknownKeys = true }
 
+    /** 上次 load 的結果（記憶體）：首頁重建時先拿來顯示。 */
+    @Volatile
+    var lastLoaded: List<DailyMix> = emptyList()
+        private set
+
     /** 背景 Worker 和首頁可能同時呼叫，一次只算一份。 */
     private val mutex = Mutex()
 
@@ -76,11 +87,18 @@ object DailyMixes {
      * 還沒算才當場算。force＝分類結果變了，重算今天的。
      */
     suspend fun load(context: Context, force: Boolean = false): List<DailyMix> = withContext(Dispatchers.IO) {
+        val today = LocalDate.now().toEpochDay()
+        val file = AtomicFile(File(context.filesDir, FILE))
+        val fp = fingerprint()
+        fun DailyMixCache.usable() = day == today && fingerprint == fp && mixes.isNotEmpty()
+
+        // 快取可用就不進鎖：背景正在重算（可能要十幾秒）時，首頁不用等它
+        if (!force) readCache(file)?.takeIf { it.usable() }?.let { return@withContext prune(it.mixes).also { lastLoaded = it } }
+
         mutex.withLock {
-            val today = LocalDate.now().toEpochDay()
-            val file = File(context.filesDir, FILE)
-            val cached = catching { json.decodeFromString(DailyMixCache.serializer(), file.readText()) }.getOrNull()
-            if (!force && cached != null && cached.day == today && cached.mixes.isNotEmpty())
+            val cached = readCache(file)
+            // 等鎖期間別人剛算好的也算數
+            if (!force && cached != null && cached.usable())
                 return@withLock prune(cached.mixes)
 
             val built = catching { build(context, today) }
@@ -90,16 +108,17 @@ object DailyMixes {
             if (built.isEmpty()) return@withLock prune(cached?.mixes.orEmpty())
 
             catching {
-                val tmp = File(context.filesDir, "$FILE.tmp")
-                tmp.writeText(json.encodeToString(DailyMixCache.serializer(), DailyMixCache(today, built)))
-                if (!tmp.renameTo(file)) {
-                    file.delete()
-                    tmp.renameTo(file)
-                }
+                writeAtomically(file, json.encodeToString(DailyMixCache.serializer(), DailyMixCache(today, built, fp)))
             }.onFailure { Log.w(TAG, "Daily Mix 存檔失敗", it) }
             built
-        }
+        }.also { lastLoaded = it }
     }
+
+    private fun readCache(file: AtomicFile) =
+        catching { json.decodeFromString(DailyMixCache.serializer(), file.readFully().decodeToString()) }.getOrNull()
+
+    /** 會用到的分類與各自的首數；收藏、取消收藏、手動改分類會讓它變。 */
+    private fun fingerprint(): Int = chooseTags(Database.favoriteTagCountsNow()).hashCode()
 
     /** 拿掉已取消收藏的自己的歌、被封鎖的歌；空掉的 Mix 不顯示。 */
     private suspend fun prune(mixes: List<DailyMix>): List<DailyMix> {
@@ -109,7 +128,7 @@ object DailyMixes {
         return mixes.mapNotNull { mix ->
             val songs = mix.songs.filter { it.id !in blocked && (!it.own || it.id in liked) }
             if (songs.isEmpty()) null
-            else mix.copy(songs = songs, ownCount = songs.count { it.own })
+            else mix.copy(songs = songs, ownCount = songs.count { it.own }, matched = songs.size)
         }
     }
 

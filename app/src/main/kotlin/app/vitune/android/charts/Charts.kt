@@ -41,7 +41,15 @@ data class ChartCard(
 object Charts {
     private val TTL = 1.hours
     private val mutex = Mutex()
-    private val cache = HashMap<ChartRegion, Pair<Long, ChartsPage>>()
+    private val cache = java.util.concurrent.ConcurrentHashMap<ChartRegion, Pair<Long, ChartsPage>>()
+
+    /** 上次首頁排行榜的結果（記憶體）：畫面重建時先拿來顯示，不會先空掉再出現。 */
+    @Volatile
+    var lastHomeCards: List<ChartCard> = emptyList()
+        private set
+
+    /** 不連網路，只看記憶體裡有沒有（過期也回傳）。 */
+    fun peek(region: ChartRegion): ChartsPage? = cache[region]?.second
 
     /** 某地區的排行榜（記憶體快取 1 小時）；失敗回 null。 */
     suspend fun page(region: ChartRegion): ChartsPage? = withContext(Dispatchers.IO) {
@@ -66,12 +74,16 @@ object Charts {
                 }
                 picked.map { ChartCard(it, region, headline(it.info?.name)) }
             }
+            .distinctBy { it.playlist.key }
             .sortedBy { order(it) }
+            .also { if (it.isNotEmpty()) lastHomeCards = it }
     }
 
     /** 搜尋頁：某地區所有榜單（含類型榜）。 */
     fun cardsOf(region: ChartRegion, page: ChartsPage): List<ChartCard> =
-        (page.playlists + page.genrePlaylists).map { ChartCard(it, region, headline(it.info?.name)) }
+        (page.playlists + page.genrePlaylists)
+            .distinctBy { it.key }
+            .map { ChartCard(it, region, headline(it.info?.name)) }
 
     private fun isLive(p: Innertube.PlaylistItem) = p.info?.name.orEmpty().let { "現場" in it || "Live" in it || "live" in it }
 

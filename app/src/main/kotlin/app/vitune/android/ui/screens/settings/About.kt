@@ -7,8 +7,6 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -39,9 +37,9 @@ import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.service.ServiceNotifications
 import app.vitune.android.ui.components.themed.CircularProgressIndicator
 import app.vitune.android.ui.components.themed.DefaultDialog
-import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.screens.Route
-import app.vitune.android.utils.bold
+import app.vitune.android.updater.AppUpdate
+import app.vitune.android.updater.UpdateDialogBody
 import app.vitune.android.utils.center
 import app.vitune.android.utils.hasPermission
 import app.vitune.android.utils.pendingIntent
@@ -252,32 +250,12 @@ fun About() = SettingsCategoryScreen(
             var newerVersion: Result<Release?>? by remember { mutableStateOf(null) }
 
             LaunchedEffect(Unit) {
-                withContext(Dispatchers.IO) {
-                    newerVersion = VERSION_NAME.version
-                        .getNewerVersion()
-                        ?.onFailure(Throwable::printStackTrace)
-                }
+                newerVersion = AppUpdate.newerRelease().onFailure(Throwable::printStackTrace)
             }
 
+            // Spewtify：有新版就直接在這裡下載安裝（按「立即更新」）
             newerVersion?.getOrNull()?.let {
-                BasicText(
-                    text = stringResource(R.string.new_version_available),
-                    style = typography.xs.semiBold.center
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                BasicText(
-                    text = it.name ?: it.tag,
-                    style = typography.m.bold.center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SecondaryTextButton(
-                    text = stringResource(R.string.more_information),
-                    onClick = { uriHandler.openUri(it.frontendUrl.toString()) }
-                )
+                UpdateDialogBody(release = it, onDismiss = { newerVersion = null; newVersionDialogOpened = false })
             } ?: newerVersion?.exceptionOrNull()?.let {
                 BasicText(
                     text = stringResource(R.string.error_github),
